@@ -1,0 +1,6 @@
+[
+	{
+		"ImportPath": "golang.org/x/tools/go/vcs",
+		"Revision": "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753"
+	}
+]
