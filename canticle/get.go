@@ -15,8 +15,9 @@ type Get struct {
 }
 
 var GetCommand = &Command{
-	UsageLine:        ``,
-	ShortDescription: ``,
+	Name:             "get",
+	UsageLine:        "get [-insource] [-n] [-x] [packages]",
+	ShortDescription: "download and install dependencies as defined in Canticle file",
 	LongDescription:  ``,
 	Cmd:              &Get{pkgs: map[string]bool{}},
 }
@@ -91,7 +92,8 @@ func (g *Get) FetchRepo(p string) error {
 	}
 	if err != nil {
 		fmt.Println("Error at CreateVCS: ", err.Error())
+		return err
 	}
 
-	return err
+	return nil
 }

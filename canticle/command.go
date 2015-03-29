@@ -1,6 +1,10 @@
 package canticle
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+	"os"
+)
 
 type CanticleCommand interface {
 	Run(args []string)
@@ -12,6 +16,7 @@ type CanticleCommand interface {
 // *  Test
 // *  Update
 type Command struct {
+	Name             string
 	UsageLine        string
 	ShortDescription string
 	LongDescription  string
@@ -22,4 +27,10 @@ type Command struct {
 var CanticleCommands = map[string]*Command{
 	"build": BuildCommand,
 	"get":   GetCommand,
+}
+
+func (c *Command) Usage() {
+	fmt.Fprintf(os.Stderr, "usage %s\n", c.UsageLine)
+	fmt.Fprintf(os.Stderr, "%s\n", c.LongDescription)
+	os.Exit(2)
 }

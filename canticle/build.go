@@ -8,6 +8,7 @@ type Build struct {
 }
 
 var BuildCommand = &Command{
+	Name:             "build",
 	UsageLine:        ``,
 	ShortDescription: ``,
 	LongDescription:  ``,

@@ -1,13 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.comcast.com/viper-cog/cant/canticle"
 )
-
-var usage = "cant "
 
 // Canticle will:
 // Load deps files
@@ -19,17 +18,42 @@ var usage = "cant "
 // Call build/test/whatever
 // Copy the result back out
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println(usage)
-		return
+	flag.Usage = usage
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 1 {
+		usage()
 	}
 
-	cmdName := os.Args[1]
+	cmdName := args[0]
 	cmd, ok := canticle.CanticleCommands[cmdName]
 	if !ok {
-		fmt.Println("Unkown canticle command")
+		fmt.Fprintln(os.Stderr, "Unkown subcommand ", cmdName)
+		usage()
 	}
 
 	fmt.Printf("Executing CMD: %+v CMDName: %+v\n", cmd, cmdName)
-	cmd.Cmd.Run(os.Args[2:])
+	cmd.Flags.Usage = cmd.Usage
+	cmd.Flags.Parse(args[1:])
+	cmd.Cmd.Run(args[1:])
+}
+
+var UsageTemplate = `Canticle is a tool for managing go dependencies.
+
+Usage:
+  cant command [arguments]
+
+The commands are:
+{{range .}}
+         {{.Name | printf "%-11s"}} {{.ShortDescription}}{{end}}
+
+Use "cant help [command]" for more information about that command.
+
+
+`
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "Usage: ")
+	os.Exit(2)
 }
