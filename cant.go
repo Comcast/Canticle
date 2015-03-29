@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.comcast.com/viper-cog/canticle/canticle"
+	"github.comcast.com/viper-cog/cant/canticle"
 )
 
 var usage = "cant "
