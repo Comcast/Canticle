@@ -7,6 +7,17 @@ import (
 	"golang.org/x/tools/go/vcs"
 )
 
+// GitATVCS creates a VCS cmd that supports the "git@blah.com:" syntax
+func GitAtVCS() *vcs.Cmd {
+	v := &vcs.Cmd{}
+	*v = *vcs.ByCmd("git")
+	v.CreateCmd = "clone git@{repo} {dir}"
+	v.PingCmd = "ls-remote {scheme}@{repo}"
+	v.Scheme = []string{"git"}
+	v.PingCmd = "ls-remote {scheme}@{repo}"
+	return v
+}
+
 // Attempt to guess the VCS given a url. This mostly relies on the
 // protocols like "ssh://" etc.
 func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
@@ -18,15 +29,7 @@ func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
 	case strings.HasPrefix(url, "git://"):
 		return vcs.ByCmd("git"), strings.TrimPrefix(url, "git://"), "git+ssh"
 	case strings.HasPrefix(url, "git@"):
-		// VCS doesn't support git@ syntax, so we create a
-		// custom command for it here
-		v = &vcs.Cmd{}
-		*v = *vcs.ByCmd("git")
-		v.CreateCmd = "clone git@{repo} {dir}"
-		v.PingCmd = "ls-remote {scheme}@{repo}"
-		v.Scheme = []string{"git"}
-		v.PingCmd = "ls-remote {scheme}@{repo}"
-		return v, strings.TrimPrefix(url, "git@"), "git"
+		return GitAtVCS(), strings.TrimPrefix(url, "git@"), "git"
 	case strings.HasPrefix(url, "ssh://hg@"):
 		return vcs.ByCmd("hg"), strings.TrimPrefix(url, "ssh://"), "ssh"
 	case strings.HasPrefix(url, "svn://"):
