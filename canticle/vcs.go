@@ -15,8 +15,18 @@ func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
 		return vcs.ByCmd("git"), strings.TrimPrefix(url, "https://"), "https"
 	case strings.HasPrefix(url, "git+ssh://"):
 		return vcs.ByCmd("git"), strings.TrimPrefix(url, "git+ssh://"), "git+ssh"
-	case strings.HasPrefix(url, "git://"), strings.HasPrefix(url, "git@"):
-		return vcs.ByCmd("git"), url, "git+ssh"
+	case strings.HasPrefix(url, "git://"):
+		return vcs.ByCmd("git"), strings.TrimPrefix(url, "git://"), "git+ssh"
+	case strings.HasPrefix(url, "git@"):
+		// VCS doesn't support git@ syntax, so we create a
+		// custom command for it here
+		v = &vcs.Cmd{}
+		*v = *vcs.ByCmd("git")
+		v.CreateCmd = "clone git@{repo} {dir}"
+		v.PingCmd = "ls-remote {scheme}@{repo}"
+		v.Scheme = []string{"git"}
+		v.PingCmd = "ls-remote {scheme}@{repo}"
+		return v, strings.TrimPrefix(url, "git@"), "git"
 	case strings.HasPrefix(url, "ssh://hg@"):
 		return vcs.ByCmd("hg"), strings.TrimPrefix(url, "ssh://"), "ssh"
 	case strings.HasPrefix(url, "svn://"):
@@ -34,24 +44,23 @@ func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
 // vcs.RepoRootForImportPath.
 func RepoRootForImportPathWithURL(importPath, url string) (*vcs.RepoRoot, error) {
 	fmt.Println("Guessing vcs for url: ", url)
+	vcs.Verbose = true
 	guess, path, scheme := GuessVCS(url)
-	fmt.Printf("Guessed vcs: %s scheme: %s path: %s ", guess, scheme, path)
 	if guess != nil {
-		guess.Scheme = []string{scheme}
-		repo := &vcs.RepoRoot{
-			VCS:  guess,
-			Repo: path,
-			Root: importPath,
+		fmt.Printf("Pinging path %s for vcs %v with scheme %s\n", path, guess, scheme)
+		err := guess.Ping(scheme, path)
+		if err == nil {
+			guess.Scheme = []string{scheme}
+			repo := &vcs.RepoRoot{
+				VCS:  guess,
+				Repo: path,
+				Root: importPath,
+			}
+			return repo, nil
+		} else {
+			fmt.Println("Ping vcs err: ", err.Error())
 		}
-		return repo, nil
-		/*		err := guess.Ping(scheme, path)
-				if err == nil {
-					guess.Scheme = []string{scheme}
-					return repo, nil
-				} else {
-					fmt.Println("Ping vcs err: ", err.Error())
-				}
-		*/
+
 	}
 
 	repo, err := vcs.RepoRootForImportPath(importPath, true)
