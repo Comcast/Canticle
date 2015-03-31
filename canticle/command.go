@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-type CanticleCommand interface {
+type Runnable interface {
 	Run(args []string)
 }
 
@@ -21,10 +21,10 @@ type Command struct {
 	ShortDescription string
 	LongDescription  string
 	Flags            flag.FlagSet
-	Cmd              CanticleCommand
+	Cmd              Runnable
 }
 
-var CanticleCommands = map[string]*Command{
+var Commands = map[string]*Command{
 	"build": BuildCommand,
 	"get":   GetCommand,
 }

@@ -54,7 +54,7 @@ func TestPackageRemoteImports(t *testing.T) {
 }
 
 func TestLoadPackage(t *testing.T) {
-	pkgPath := "github.comcast.com/viper-cog/canticle/canticle"
+	pkgPath := "github.comcast.com/viper-cog/cant/canticle"
 	pkg, err := LoadPackage(pkgPath, os.ExpandEnv("$GOPATH"))
 	if err != nil {
 		t.Errorf("Error %s loading package information for valid package", err.Error())

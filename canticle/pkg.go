@@ -102,7 +102,7 @@ func filterStrings(strings []string, f func(string) bool) []string {
 // errors.
 func LoadPackage(pkgPath, gohome string) (*Package, error) {
 	cmd := exec.Command("go", "list", "--json", pkgPath)
-	cmd.Env = os.Environ()
+	cmd.Env = PatchEnviroment(os.Environ(), "GOHOME", gohome)
 	result, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -125,4 +125,18 @@ func (p *Package) RemoteImports(includeTest bool) []string {
 	}
 
 	return filterStrings(imports, IsRemote)
+}
+
+// PatchEnviroment changes an enviroment variable set to
+// have a new key value
+func PatchEnviroment(env []string, key, value string) []string {
+	prefix := key + "="
+	newValue := key + "=" + value
+	for i, v := range env {
+		if strings.HasPrefix(v, prefix) {
+			env[i] = newValue
+			return env
+		}
+	}
+	return append(env, newValue)
 }

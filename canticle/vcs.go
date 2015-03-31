@@ -41,37 +41,83 @@ func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
 	}
 }
 
-// RepoRootForImportPathWithURL uses a URL and an import path to guess
+type PackageVCS struct {
+	repo *vcs.RepoRoot
+}
+
+func (pv *PackageVCS) Create(rev string) error {
+	if rev != "" {
+		return pv.repo.VCS.Create(pv.repo.Root, pv.repo.Repo)
+	}
+	return pv.repo.VCS.CreateAtRev(pv.repo.Root, pv.repo.Repo, rev)
+}
+
+func (pv *PackageVCS) SetRev(rev string) error {
+	return nil
+}
+
+type VCS interface {
+	Create(rev string) error
+	SetRev(rev string) error
+}
+
+type RepoDiscovery struct {
+	resolvedVCS map[string]VCS
+}
+
+func NewRepoDiscovery() *RepoDiscovery {
+	return &RepoDiscovery{
+		resolvedVCS: make(map[string]VCS),
+	}
+}
+
+// ResolveRepo uses a URL and an import path to guess
 // a correct location and vcs for given import path. If the URL does
 // not return a VCS from GuessVCS then it falls back on
 // vcs.RepoRootForImportPath.
-func RepoRootForImportPathWithURL(importPath, url string) (*vcs.RepoRoot, error) {
-	fmt.Println("Guessing vcs for url: ", url)
+func (r *RepoDiscovery) ResolveRepo(importPath, url string) (VCS, error) {
+	if vcs, found := r.resolvedVCS[importPath]; found {
+		return vcs, nil
+	}
+
+	// We guess our vcs based off our url path if present
+	resolvePath := importPath
+	if url != "" {
+		resolvePath = url
+	}
+
+	fmt.Println("Guessing vcs for url: ", resolvePath)
 	vcs.Verbose = true
-	guess, path, scheme := GuessVCS(url)
+
+	// Attempt our internal guessing logic first
+	guess, path, scheme := GuessVCS(resolvePath)
 	if guess != nil {
 		fmt.Printf("Pinging path %s for vcs %v with scheme %s\n", path, guess, scheme)
 		err := guess.Ping(scheme, path)
 		if err == nil {
 			guess.Scheme = []string{scheme}
-			repo := &vcs.RepoRoot{
-				VCS:  guess,
-				Repo: path,
-				Root: importPath,
+			v := &PackageVCS{
+				&vcs.RepoRoot{
+					VCS:  guess,
+					Repo: path,
+					Root: importPath,
+				},
 			}
-			return repo, nil
-		} else {
-			fmt.Println("Ping vcs err: ", err.Error())
+			r.resolvedVCS[importPath] = v
+			return v, nil
 		}
-
+		fmt.Println("Ping vcs err: ", err.Error())
 	}
 
-	repo, err := vcs.RepoRootForImportPath(importPath, true)
+	// Next resort to the VCS (go get) guessing logic
+	repo, err := vcs.RepoRootForImportPath(resolvePath, true)
 	if err != nil {
 		return nil, err
 	}
-	if url != "" {
-		repo.Repo = url
-	}
-	return repo, nil
+
+	// If we found something return non nil
+	repo.Root = importPath
+	v := &PackageVCS{repo}
+	r.resolvedVCS[importPath] = v
+	return v, nil
 }
