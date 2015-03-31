@@ -197,14 +197,18 @@ func (cdl *DependencyLoader) LoadAllDependencies(dep *Dependency) (Dependencies,
 		cdl.deps.AddDependency(dep)
 	}
 
+	cdl.loadedPackages[dep.ImportPath] = true
+
 	// Load the child packages
 	for _, dep := range deps {
+		if cdl.loadedPackages[dep.ImportPath] {
+			continue
+		}
 		if _, err := cdl.LoadAllDependencies(dep); err != nil {
 			return nil, err
 		}
 	}
 
-	cdl.loadedPackages[dep.ImportPath] = true
 	return cdl.deps, nil
 }
 
@@ -214,13 +218,13 @@ func (cdl *DependencyLoader) LoadAllDependencies(dep *Dependency) (Dependencies,
 func (cdl *DependencyLoader) FetchUpdatePackage(dep *Dependency) error {
 	s, err := os.Stat(path.Join(cdl.gopath, "src", dep.ImportPath))
 	switch {
+	case os.IsPermission(err):
+		return fmt.Errorf("Package %s exists but could not be accessed (permissions)", dep.ImportPath)
+	case s != nil && !s.IsDir():
+		return fmt.Errorf("Package %s is a file not a directory", dep.ImportPath)
 	case os.IsNotExist(err):
 		fmt.Printf("Fetching package: %+v\n", dep)
 		return cdl.FetchRepo(dep)
-	case os.IsPermission(err):
-		return fmt.Errorf("Package %s exists but could not be accessed (permissions)", dep.ImportPath)
-	case !s.IsDir():
-		return fmt.Errorf("Package %s is a file not a directory", dep.ImportPath)
 	default:
 		fmt.Printf("Package %+v already exists\n", dep)
 		return cdl.UpdateRepo(dep)
