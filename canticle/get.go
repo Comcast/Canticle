@@ -10,10 +10,13 @@ type Get struct {
 	flags *flag.FlagSet
 }
 
-var get = &Get{
-	flags: flag.NewFlagSet("get", flag.ExitOnError),
-}
-
+var (
+	get = &Get{
+		flags: flag.NewFlagSet("get", flag.ExitOnError),
+	}
+	insource = get.flags.Bool("insource", false, "Get the packages to the enviroment gopath rather than the build dir")
+	verbose  = get.flags.Bool("v", false, "Be verbose when getting stuff")
+)
 var GetCommand = &Command{
 	Name:             "get",
 	UsageLine:        "get [-insource] [-v] [-n] [package]",
@@ -24,8 +27,6 @@ var GetCommand = &Command{
 }
 
 func (g *Get) Run(args []string) {
-	insource := g.flags.Bool("insource", false, "Get the packages to the enviroment gopath rather than the build dir")
-	verbose := g.flags.Bool("v", false, "Be verbose when getting stuff")
 	if err := g.flags.Parse(args); err != nil {
 		return
 	}
@@ -53,7 +54,7 @@ func GetPackage(pkg string, insource bool) {
 		gopath = BuildRoot(gopath, pkg)
 	}
 	resolver := NewRepoDiscovery(gopath)
-	depReader := &DepReader{}
+	depReader := &DepReader{gopath}
 	dl := NewDependencyLoader(resolver.ResolveRepo, gopath)
 	dw := NewDependencyWalker(depReader.ReadDependencies, dl.FetchUpdatePackage)
 	err := dw.TraversePackageDependencies(pkg)
