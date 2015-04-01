@@ -158,35 +158,35 @@ func NewDependencyLoader(resolver RepoResolver, depReader DependencyReader, gopa
 }
 
 // SaveDependencies
-func (cdl *DependencyLoader) SaveDependencies() Dependencies {
+func (dl *DependencyLoader) SaveDependencies() Dependencies {
 	return nil
 }
 
 // LoadAllPackageDependencies is equivalent to
 // LoadAllDependencies(&Dependency{ImportPath: p})
-func (cdl *DependencyLoader) LoadAllPackageDependencies(p string) (Dependencies, error) {
-	return cdl.LoadAllDependencies(&Dependency{ImportPath: p})
+func (dl *DependencyLoader) LoadAllPackageDependencies(p string) (Dependencies, error) {
+	return dl.LoadAllDependencies(&Dependency{ImportPath: p})
 }
 
 // LoadAllDependencies recursively reads and loads all dependencies of
-// dep and returns the result. If cdl.Update is true it will fetch non
+// dep and returns the result. If dl.Update is true it will fetch non
 // existent repos and/or set them to the versions returned by teh
 // depReader.
-func (cdl *DependencyLoader) LoadAllDependencies(dep *Dependency) (Dependencies, error) {
+func (dl *DependencyLoader) LoadAllDependencies(dep *Dependency) (Dependencies, error) {
 	// If we have already loaded this package do not load it again
-	if loaded := cdl.loadedPackages[dep.ImportPath]; loaded {
-		return cdl.deps, nil
+	if loaded := dl.loadedPackages[dep.ImportPath]; loaded {
+		return dl.deps, nil
 	}
 
 	// If this package isn't on disk fetch it
-	if cdl.Update {
-		if err := cdl.FetchUpdatePackage(dep); err != nil {
+	if dl.Update {
+		if err := dl.FetchUpdatePackage(dep); err != nil {
 			return nil, err
 		}
 	}
 
 	// Load this package
-	deps, err := cdl.depReader.ReadDependencies(dep.ImportPath, cdl.gopath)
+	deps, err := dl.depReader.ReadDependencies(dep.ImportPath, dl.gopath)
 	if err != nil {
 		fmt.Println("Error Loading Package: ", err.Error())
 		return nil, err
@@ -194,29 +194,29 @@ func (cdl *DependencyLoader) LoadAllDependencies(dep *Dependency) (Dependencies,
 
 	// Merge its deps
 	for _, dep := range deps {
-		cdl.deps.AddDependency(dep)
+		dl.deps.AddDependency(dep)
 	}
 
-	cdl.loadedPackages[dep.ImportPath] = true
+	dl.loadedPackages[dep.ImportPath] = true
 
 	// Load the child packages
 	for _, dep := range deps {
-		if cdl.loadedPackages[dep.ImportPath] {
+		if dl.loadedPackages[dep.ImportPath] {
 			continue
 		}
-		if _, err := cdl.LoadAllDependencies(dep); err != nil {
+		if _, err := dl.LoadAllDependencies(dep); err != nil {
 			return nil, err
 		}
 	}
 
-	return cdl.deps, nil
+	return dl.deps, nil
 }
 
 // FetchUpdatePackage will fetch or set the specified package to the version
 // defined by the Dependency or if no version is defined will use
 // the VCS default.
-func (cdl *DependencyLoader) FetchUpdatePackage(dep *Dependency) error {
-	s, err := os.Stat(path.Join(cdl.gopath, "src", dep.ImportPath))
+func (dl *DependencyLoader) FetchUpdatePackage(dep *Dependency) error {
+	s, err := os.Stat(path.Join(dl.gopath, "src", dep.ImportPath))
 	switch {
 	case os.IsPermission(err):
 		return fmt.Errorf("Package %s exists but could not be accessed (permissions)", dep.ImportPath)
@@ -224,21 +224,21 @@ func (cdl *DependencyLoader) FetchUpdatePackage(dep *Dependency) error {
 		return fmt.Errorf("Package %s is a file not a directory", dep.ImportPath)
 	case os.IsNotExist(err):
 		fmt.Printf("Fetching package: %+v\n", dep)
-		return cdl.FetchRepo(dep)
+		return dl.FetchRepo(dep)
 	default:
 		fmt.Printf("Package %+v already exists\n", dep)
-		return cdl.UpdateRepo(dep)
+		return dl.UpdateRepo(dep)
 	}
 }
 
 // UpdateRepo sets the repo to the correct version as defined by the
 // Dependency.
-func (cdl *DependencyLoader) UpdateRepo(dep *Dependency) error {
+func (dl *DependencyLoader) UpdateRepo(dep *Dependency) error {
 	if dep.Revision == "" {
 		return nil
 	}
 
-	vcs, err := cdl.resolver.ResolveRepo(dep.ImportPath, dep.SourcePath)
+	vcs, err := dl.resolver.ResolveRepo(dep.ImportPath, dep.SourcePath)
 	if err != nil {
 		fmt.Println("Error resolving repo: ", err.Error())
 		return err
@@ -250,8 +250,8 @@ func (cdl *DependencyLoader) UpdateRepo(dep *Dependency) error {
 // FetchRepo fetches a non created repo at the version defined by the
 // Dependency. If no version is defined the default checkout is
 // used as defined by the vcs.
-func (cdl *DependencyLoader) FetchRepo(dep *Dependency) error {
-	vcs, err := cdl.resolver.ResolveRepo(dep.ImportPath, dep.SourcePath)
+func (dl *DependencyLoader) FetchRepo(dep *Dependency) error {
+	vcs, err := dl.resolver.ResolveRepo(dep.ImportPath, dep.SourcePath)
 	if err != nil {
 		fmt.Println("Error resolving repo: ", err.Error())
 		return err
