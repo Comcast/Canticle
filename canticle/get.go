@@ -23,9 +23,9 @@ func (g *Get) Run(args []string) {
 
 	resolver := NewRepoDiscovery(os.ExpandEnv("$GOPATH"))
 	depReader := &DepReader{}
-	cdl := NewDependencyLoader(resolver, depReader, os.ExpandEnv("$GOPATH"))
-
-	deps, err := cdl.LoadAllPackageDependencies(args[0])
+	dl := NewDependencyLoader(resolver, depReader, os.ExpandEnv("$GOPATH"))
+	dl.Update = true
+	deps, err := dl.LoadAllPackageDependencies(args[0])
 	if err != nil {
 		log.Fatalf("Error fetching packages: %s", err.Error())
 	}
