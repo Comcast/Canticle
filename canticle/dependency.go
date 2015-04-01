@@ -183,19 +183,22 @@ func (dw *DependencyWalker) TraverseDependencies(dep *Dependency) error {
 		case err != nil:
 			return err
 		}
+
 		// Load this package
-		deps, err := dw.readPackage(dep.ImportPath)
+		children, err := dw.readPackage(dep.ImportPath)
 		if err != nil {
 			return err
 		}
-		// Load the child packages
-		for _, dep := range deps {
+
+		// Queue the child packages
+		for _, child := range children {
+			LogVerbose("Package %+v has dep %+v", dep, child)
 			// If we already traversed this node don't re-queue it
-			if dw.loadedPackages.Dependency(dep.ImportPath) != nil {
+			if dw.loadedPackages.Dependency(child.ImportPath) != nil {
 				continue
 			}
 			// Push back the dep into the queue
-			dw.depsQueue = append(dw.depsQueue, dep)
+			dw.depsQueue = append(dw.depsQueue, child)
 		}
 	}
 
@@ -247,24 +250,28 @@ func (dl *DependencyLoader) FetchUpdatePackage(dep *Dependency, errs []error) er
 	if dl.deps.Dependency(dep.ImportPath) != nil {
 		return nil
 	}
+
 	// Else attempt to resolve and fetch the package
 	dl.deps.AddDependency(dep)
-	vcs, err := dl.resolve(dep.ImportPath, dep.SourcePath)
-	if err != nil {
-		return err
-	}
-
 	s, err := os.Stat(path.Join(dl.gopath, "src", dep.ImportPath))
 	switch {
-	case os.IsPermission(err):
-		return fmt.Errorf("Package %s exists but could not be accessed (permissions)", dep.ImportPath)
 	case s != nil && !s.IsDir():
 		return fmt.Errorf("Package %s is a file not a directory", dep.ImportPath)
 	case os.IsNotExist(err):
+		LogVerbose("Create package %s at revision %s", dep.ImportPath, dep.Revision)
+		vcs, err := dl.resolve(dep.ImportPath, dep.SourcePath)
+		if err != nil {
+			return err
+		}
 		return vcs.Create(dep.Revision)
+	case s != nil && s.IsDir() && dep.Revision == "":
+		LogVerbose("Package already on disk %s", dep.ImportPath)
+		return nil
 	default:
-		if dep.Revision == "" {
-			return nil
+		LogVerbose("Setting package %s to revision %s", dep.ImportPath, dep.Revision)
+		vcs, err := dl.resolve(dep.ImportPath, dep.SourcePath)
+		if err != nil {
+			return err
 		}
 		return vcs.SetRev(dep.Revision)
 	}
