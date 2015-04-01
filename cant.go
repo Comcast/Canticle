@@ -27,7 +27,7 @@ func main() {
 	}
 
 	cmdName := args[0]
-	cmd, ok := canticle.CanticleCommands[cmdName]
+	cmd, ok := canticle.Commands[cmdName]
 	if !ok {
 		fmt.Fprintln(os.Stderr, "Unkown subcommand ", cmdName)
 		usage()
