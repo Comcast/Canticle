@@ -33,7 +33,6 @@ func main() {
 		usage()
 	}
 
-	fmt.Printf("Executing CMD: %+v CMDName: %+v\n", cmd, cmdName)
 	cmd.Flags.Usage = cmd.Usage
 	cmd.Flags.Parse(args[1:])
 	cmd.Cmd.Run(args[1:])
