@@ -11,10 +11,10 @@ import (
 )
 
 func TestReadCanticleDependencies(t *testing.T) {
-	cdr := &DepReader{}
+	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := cdr.ReadCanticleDependencies("github.comcast.com/viper-cog/cant", os.ExpandEnv("$GOPATH"))
+	deps, err := dr.ReadCanticleDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading valid Canticle file %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -35,7 +35,7 @@ func TestReadCanticleDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = cdr.ReadCanticleDependencies("github.comcast.com/viper-cog/nothere", os.ExpandEnv("$GOPATH"))
+	deps, err = dr.ReadCanticleDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadCanticleDependencies returned nil error loading invalid path")
 	}
@@ -48,10 +48,10 @@ func TestReadCanticleDependencies(t *testing.T) {
 }
 
 func TestReadRemoteDependencies(t *testing.T) {
-	cdr := &DepReader{}
+	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := cdr.ReadRemoteDependencies("github.comcast.com/viper-cog/cant", os.ExpandEnv("$GOPATH"))
+	deps, err := dr.ReadRemoteDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -69,7 +69,7 @@ func TestReadRemoteDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = cdr.ReadRemoteDependencies("github.comcast.com/viper-cog/nothere", os.ExpandEnv("$GOPATH"))
+	deps, err = dr.ReadRemoteDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadRemoteDependencies returned nil error loading invalid path")
 	}
@@ -82,10 +82,10 @@ func TestReadRemoteDependencies(t *testing.T) {
 }
 
 func TestReadDependencies(t *testing.T) {
-	cdr := &DepReader{}
+	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := cdr.ReadDependencies("github.comcast.com/viper-cog/cant", os.ExpandEnv("$GOPATH"))
+	deps, err := dr.ReadDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -111,7 +111,7 @@ func TestReadDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = cdr.ReadDependencies("github.comcast.com/viper-cog/nothere", os.ExpandEnv("$GOPATH"))
+	deps, err = dr.ReadDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadDependencies returned nil error loading invalid path")
 	}
@@ -123,7 +123,7 @@ func TestReadDependencies(t *testing.T) {
 	}
 
 	// NonCanticle path
-	deps, err = cdr.ReadDependencies("github.comcast.com/viper-cog/cant/canticle", os.ExpandEnv("$GOPATH"))
+	deps, err = dr.ReadDependencies("github.comcast.com/viper-cog/cant/canticle")
 	if err != nil {
 		t.Errorf("ReadDependencies returned nil error loading valid path")
 	}
@@ -154,7 +154,8 @@ func TestReadDependencies(t *testing.T) {
 	}
 
 	// Test ourselves
-	deps, err = cdr.ReadDependencies("github.comcast.com/viper-cog/cant", testHome)
+	dr.Gopath = testHome
+	deps, err = dr.ReadDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -181,6 +182,195 @@ func TestReadDependencies(t *testing.T) {
 	if err = os.RemoveAll(testHome); err != nil {
 		fmt.Printf("Error deleting files %s\n", err.Error())
 	}
+}
+
+type TestDepRead struct {
+	Deps Dependencies
+	Err  error
+}
+
+type TestDepReader struct {
+	PackageDeps map[string]TestDepRead
+}
+
+func (tdr *TestDepReader) ReadDependencies(p string) (Dependencies, error) {
+	r := tdr.PackageDeps[p]
+	return r.Deps, r.Err
+}
+
+type WalkCall struct {
+	Dep  *Dependency
+	Errs []error
+}
+
+type TestWalker struct {
+	calls     []WalkCall
+	responses []error
+}
+
+func (tw *TestWalker) HandlePackage(dep *Dependency, errs []error) error {
+	tw.calls = append(tw.calls, WalkCall{dep, errs})
+	if len(tw.responses) > 0 {
+		resp := tw.responses[0]
+		tw.responses = tw.responses[1:]
+		return resp
+	}
+	return nil
+}
+
+var NormalReader = &TestDepReader{
+	map[string]TestDepRead{
+		"testpkg": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep1", Revision: "a"},
+				"dep2": &Dependency{ImportPath: "dep2", Revision: "b"},
+			},
+			nil,
+		},
+		"dep1": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep2"},
+			},
+			nil,
+		},
+		"dep2": TestDepRead{
+			map[string]*Dependency{}, nil,
+		},
+	},
+}
+
+var NormalReaderResult = []WalkCall{
+	{&Dependency{ImportPath: "testpkg"}, nil},
+	{&Dependency{ImportPath: "dep1", Revision: "a"}, nil},
+	{&Dependency{ImportPath: "dep2", Revision: "b"}, nil},
+}
+
+var HandlerErrorResult = []WalkCall{
+	{&Dependency{ImportPath: "testpkg"}, nil},
+}
+
+var HandlerSkipResult = []WalkCall{
+	{&Dependency{ImportPath: "testpkg"}, nil},
+}
+
+var CycledReader = &TestDepReader{
+	map[string]TestDepRead{
+		"testpkg": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep1", Revision: "a"},
+				"dep2": &Dependency{ImportPath: "dep2", Revision: "b"},
+			},
+			nil,
+		},
+		"dep1": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep2"},
+			},
+			nil,
+		},
+		"dep2": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep1"},
+			},
+			nil,
+		},
+	},
+}
+
+var CycleReaderResult = []WalkCall{
+	{&Dependency{ImportPath: "testpkg"}, nil},
+	{&Dependency{ImportPath: "dep1", Revision: "a"}, nil},
+	{&Dependency{ImportPath: "dep2", Revision: "b"}, nil},
+}
+
+var testErr = errors.New("Test err")
+var ChildErrorReader = &TestDepReader{
+	map[string]TestDepRead{
+		"testpkg": TestDepRead{
+			map[string]*Dependency{
+				"dep1": &Dependency{ImportPath: "dep1", Revision: "a"},
+				"dep2": &Dependency{ImportPath: "dep2", Revision: "b"},
+			},
+			nil,
+		},
+		"dep1": TestDepRead{
+			map[string]*Dependency{
+				"dep3": &Dependency{ImportPath: "dep3", Revision: "d"},
+			},
+			nil,
+		},
+		"dep2": TestDepRead{
+			map[string]*Dependency{}, nil,
+		},
+		"dep3": TestDepRead{
+			map[string]*Dependency{}, testErr,
+		},
+	},
+}
+
+var ChildErrorReaderResult = []WalkCall{
+	{&Dependency{ImportPath: "testpkg"}, nil},
+	{&Dependency{ImportPath: "dep1", Revision: "a"}, nil},
+	{&Dependency{ImportPath: "dep2", Revision: "b"}, nil},
+}
+
+func CheckResult(t *testing.T, logPrefix string, expected, got []WalkCall) {
+	for i, v := range expected {
+		if !reflect.DeepEqual(v.Dep, got[i].Dep) {
+			t.Errorf("%s expected dep: %+v != got %+v", logPrefix, v.Dep, got[i].Dep)
+		}
+		if !reflect.DeepEqual(v.Errs, got[i].Errs) {
+			t.Errorf("%s expected err: %+v != got %+v", logPrefix, v.Errs, got[i].Errs)
+		}
+
+	}
+}
+
+func TestTraversePackageDependencies(t *testing.T) {
+	tw := &TestWalker{}
+	// Run a test with a reader with normal deps
+	dw := NewDependencyWalker(NormalReader.ReadDependencies, tw.HandlePackage)
+	err := dw.TraversePackageDependencies("testpkg")
+	if err != nil {
+		t.Errorf("Error loading valid pkg %s", err.Error())
+	}
+	CheckResult(t, "NormalReader", NormalReaderResult, tw.calls)
+
+	// Run a test with an error from our handler
+	tw = &TestWalker{responses: []error{nil, testErr}}
+	dw = NewDependencyWalker(NormalReader.ReadDependencies, tw.HandlePackage)
+	err = dw.TraversePackageDependencies("testpkg")
+	if err == nil {
+		t.Errorf("Error not returned from hanlder")
+	}
+	CheckResult(t, "HandlerError", HandlerErrorResult, tw.calls)
+
+	// Run a test with a skip error from our handler
+	tw = &TestWalker{responses: []error{nil, ErrorSkip}}
+	dw = NewDependencyWalker(NormalReader.ReadDependencies, tw.HandlePackage)
+	err = dw.TraversePackageDependencies("testpkg")
+	if err != nil {
+		t.Errorf("Error returned when skip form hanlder %s", err.Error())
+	}
+	CheckResult(t, "HandlerSkip", HandlerSkipResult, tw.calls)
+
+	// Run a test with a reader with cycled deps, make sure we don't infinite loop
+	tw = &TestWalker{}
+	dw = NewDependencyWalker(CycledReader.ReadDependencies, tw.HandlePackage)
+	err = dw.TraversePackageDependencies("testpkg")
+	if err != nil {
+		t.Errorf("Error loading valid pkg %s", err.Error())
+	}
+	CheckResult(t, "CycledReader", CycleReaderResult, tw.calls)
+
+	// Run a test with a non loadable package
+	tw = &TestWalker{}
+	dw = NewDependencyWalker(ChildErrorReader.ReadDependencies, tw.HandlePackage)
+	err = dw.TraversePackageDependencies("testpkg")
+	if err == nil {
+		t.Errorf("Error loading invvalid pkg %s", err.Error())
+	}
+	CheckResult(t, "ChildErrorReader", ChildErrorReaderResult, tw.calls)
 }
 
 type TestVCS struct {
@@ -216,312 +406,12 @@ func (tr *TestResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	return r.V, r.Err
 }
 
-type TestDepRead struct {
-	Deps Dependencies
-	Err  error
-}
-
-type TestDepReader struct {
-	PackageDeps map[string]TestDepRead
-}
-
-func (tdr *TestDepReader) ReadDependencies(p, gopath string) (Dependencies, error) {
-	r := tdr.PackageDeps[p]
-	return r.Deps, r.Err
-}
-
-var CycledReader = &TestDepReader{
-	PackageDeps: map[string]TestDepRead{
-		"testpkg": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep1",
-					Revision:   "a",
-				},
-				"dep2": &Dependency{
-					ImportPath: "dep2",
-					Revision:   "b",
-				},
-			},
-		},
-		"dep1": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep2",
-				},
-			},
-		},
-		"dep2": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep1",
-				},
-			},
-		},
-	},
-}
-
-var CycleReaderDeps = map[string]*Dependency{
-	"dep1": &Dependency{
-		ImportPath: "dep1",
-		Revision:   "a",
-	},
-	"dep2": &Dependency{
-		ImportPath: "dep2",
-		Revision:   "b",
-	},
-}
-
-var NormalReader = &TestDepReader{
-	PackageDeps: map[string]TestDepRead{
-		"testpkg": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep1",
-					Revision:   "a",
-				},
-				"dep2": &Dependency{
-					ImportPath: "dep2",
-					Revision:   "b",
-				},
-			},
-		},
-		"dep1": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep2",
-				},
-			},
-		},
-		"dep2": TestDepRead{
-			Deps: map[string]*Dependency{},
-		},
-	},
-}
-
-var NormalReaderDeps = map[string]*Dependency{
-	"dep1": &Dependency{
-		ImportPath: "dep1",
-		Revision:   "a",
-	},
-	"dep2": &Dependency{
-		ImportPath: "dep2",
-		Revision:   "b",
-	},
-}
-
-var ChildCantReader = &TestDepReader{
-	PackageDeps: map[string]TestDepRead{
-		"testpkg": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep1",
-					Revision:   "a",
-				},
-				"dep2": &Dependency{
-					ImportPath: "dep2",
-					Revision:   "b",
-				},
-			},
-		},
-		"dep1": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep3": &Dependency{
-					ImportPath: "dep3",
-					Revision:   "d",
-				},
-			},
-		},
-		"dep2": TestDepRead{
-			Deps: map[string]*Dependency{},
-		},
-		"dep3": TestDepRead{
-			Deps: map[string]*Dependency{},
-		},
-	},
-}
-
-var ChildCantReaderDeps = map[string]*Dependency{
-	"dep1": &Dependency{
-		ImportPath: "dep1",
-		Revision:   "a",
-	},
-	"dep2": &Dependency{
-		ImportPath: "dep2",
-		Revision:   "b",
-	},
-	"dep3": &Dependency{
-		ImportPath: "dep3",
-		Revision:   "d",
-	},
-}
-
-var ErroredReader = &TestDepReader{
-	PackageDeps: map[string]TestDepRead{
-		"testpkg": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep1": &Dependency{
-					ImportPath: "dep1",
-					Revision:   "a",
-				},
-				"dep2": &Dependency{
-					ImportPath: "dep2",
-					Revision:   "b",
-				},
-			},
-		},
-		"dep1": TestDepRead{
-			Deps: map[string]*Dependency{
-				"dep3": &Dependency{
-					ImportPath: "dep3",
-					Revision:   "d",
-				},
-			},
-		},
-		"dep2": TestDepRead{
-			Deps: map[string]*Dependency{},
-		},
-		"dep3": TestDepRead{
-			Err: errors.New("Error package"),
-		},
-	},
-}
-
-func CheckDeps(t *testing.T, logPrefix string, expected, got Dependencies) {
-	for k, v := range expected {
-		if !reflect.DeepEqual(v, got.Dependency(k)) {
-			t.Errorf("%s expected dep: %+v != got %+v", logPrefix, v, got[k])
-		}
-	}
-}
-
-func TestLoadAllDependencies(t *testing.T) {
-	testHome := "test"
-	// Run a test with a reader with cycled deps, make sure we don't infinite loop
-	resolver := &TestResolver{}
-	cdl := NewDependencyLoader(resolver, NormalReader, testHome)
-	deps, err := cdl.LoadAllPackageDependencies("testpkg")
-	if err != nil {
-		t.Errorf("Error loading valid pkg %s", err.Error())
-	}
-	if len(deps) == 0 {
-		t.Errorf("No valid deps for testpkg")
-	}
-	CheckDeps(t, "", NormalReaderDeps, deps)
-
-	// Run a test with a reader with cycled deps, make sure we don't infinite loop
-	resolver = &TestResolver{}
-	cdl = NewDependencyLoader(resolver, CycledReader, testHome)
-	deps, err = cdl.LoadAllPackageDependencies("testpkg")
-	if err != nil {
-		t.Errorf("Error loading valid pkg %s", err.Error())
-	}
-	if len(deps) == 0 {
-		t.Errorf("No valid deps for testpkg")
-	}
-	CheckDeps(t, "", CycleReaderDeps, deps)
-
-	// Run a test with child canticle revisions
-	resolver = &TestResolver{}
-	cdl = NewDependencyLoader(resolver, ChildCantReader, testHome)
-	deps, err = cdl.LoadAllPackageDependencies("testpkg")
-	if err != nil {
-		t.Errorf("Error loading valid pkg %s", err.Error())
-	}
-	if len(deps) == 0 {
-		t.Errorf("No valid deps for testpkg")
-	}
-	CheckDeps(t, "ChildCantReaderDeps", ChildCantReaderDeps, deps)
-
-	// Run a test with a non loadable package
-	resolver = &TestResolver{}
-	cdl = NewDependencyLoader(resolver, ErroredReader, testHome)
-	deps, err = cdl.LoadAllPackageDependencies("testpkg")
-	if err == nil {
-		t.Errorf("Error loading invvalid pkg %s", err.Error())
-	}
-	if len(deps) != 0 {
-		t.Errorf("Valid deps for testpkg with error")
-	}
-}
-
-func TestUpdateRepo(t *testing.T) {
-	resolver := &TestResolver{}
-	dl := NewDependencyLoader(resolver, NormalReader, "")
-	if err := dl.UpdateRepo(&Dependency{Revision: ""}); err != nil {
-		t.Errorf("UpdateRepo for nil revision returned err: %s", err.Error())
-	}
-
-	resolver = &TestResolver{
-		ResolvePaths: map[string]*TestVCSResolve{
-			"dep1": &TestVCSResolve{
-				Err: errors.New("some error"),
-			},
-		},
-	}
-	dl = NewDependencyLoader(resolver, NormalReader, "")
-	if err := dl.UpdateRepo(&Dependency{Revision: "a", ImportPath: "dep1"}); err == nil {
-		t.Errorf("UpdateRepo for errored update returned nil err")
-	}
-
-	v := &TestVCS{}
-	resolver = &TestResolver{
-		ResolvePaths: map[string]*TestVCSResolve{
-			"dep1": &TestVCSResolve{
-				V: v,
-			},
-		},
-	}
-	dl = NewDependencyLoader(resolver, NormalReader, "")
-	if err := dl.UpdateRepo(&Dependency{Revision: "a", ImportPath: "dep1"}); err != nil {
-		t.Errorf("UpdateRepo for valid update returned err: %s", err.Error())
-	}
-	if v.Updated != 1 {
-		t.Errorf("UpdateRepo updated %d times instead of %d times", v.Updated, 1)
-	}
-	if v.Rev != "a" {
-		t.Errorf("UpdatedRepo send rev %s instead of %s", v.Rev, "a")
-	}
-}
-
-func TestFetchRepo(t *testing.T) {
-	resolver := &TestResolver{
-		ResolvePaths: map[string]*TestVCSResolve{
-			"dep1": &TestVCSResolve{
-				Err: errors.New("some error"),
-			},
-		},
-	}
-	dl := NewDependencyLoader(resolver, NormalReader, "")
-	if err := dl.FetchRepo(&Dependency{Revision: "a", ImportPath: "dep1"}); err == nil {
-		t.Errorf("UpdateRepo for errored update returned nil err")
-	}
-
-	v := &TestVCS{}
-	resolver = &TestResolver{
-		ResolvePaths: map[string]*TestVCSResolve{
-			"dep1": &TestVCSResolve{
-				V: v,
-			},
-		},
-	}
-	dl = NewDependencyLoader(resolver, NormalReader, "")
-	if err := dl.FetchRepo(&Dependency{Revision: "a", ImportPath: "dep1"}); err != nil {
-		t.Errorf("UpdateRepo for valid update returned err: %s", err.Error())
-	}
-	if v.Created != 1 {
-		t.Errorf("UpdateRepo updated %d times instead of %d times", v.Updated, 1)
-	}
-	if v.Rev != "a" {
-		t.Errorf("UpdatedRepo send rev %s instead of %s", v.Rev, "a")
-	}
-}
-
 func TestFetchUpdatePackage(t *testing.T) {
 	testHome, err := ioutil.TempDir("", "cant-test")
 	if err != nil {
 		t.Fatalf("Error creating tempdir: %s", err.Error())
 	}
+	defer os.RemoveAll(testHome)
 
 	v := &TestVCS{}
 	resolver := &TestResolver{
@@ -531,27 +421,40 @@ func TestFetchUpdatePackage(t *testing.T) {
 			},
 		},
 	}
-	dl := NewDependencyLoader(resolver, NormalReader, testHome)
-	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}); err != nil {
+	dl := NewDependencyLoader(resolver.ResolveRepo, testHome)
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{}); err != nil {
 		t.Errorf("Error with fetchupdatepackage on create %s", err.Error())
 	}
 	if v.Created != 1 {
 		t.Errorf("Fetchupdate package did not call vcs create")
 	}
 
+	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
 	name := path.Join(testHome, "src", "testpkg")
 	os.MkdirAll(name, 0755)
-	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg", Revision: "a"}); err != nil {
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg", Revision: "a"}, []error{}); err != nil {
 		t.Errorf("Error with fetchupdatepackage on update %s", err.Error())
 	}
 	if v.Updated != 1 {
 		t.Errorf("Fetchupdate package did not call vcs update")
 	}
 
+	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
+	dl.HaltOnError = false
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{testErr}); err != nil {
+		t.Errorf("Error from fetchupdatepackage when passed an error with HaltOnError false")
+	}
+
+	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
 	os.RemoveAll(name)
 	ioutil.WriteFile(name, []byte("test"), 0655)
-	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}); err == nil {
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{}); err == nil {
 		t.Errorf("No error from fetchupdatepackage when file already exists but is not dir")
 	}
-	os.RemoveAll(testHome)
+
+	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{testErr}); err == nil {
+		t.Errorf("No error from fetchupdatepackage when passed an error with HaltOnError true")
+	}
+
 }

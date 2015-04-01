@@ -54,11 +54,11 @@ func GetPackage(pkg string, insource bool) {
 	}
 	resolver := NewRepoDiscovery(gopath)
 	depReader := &DepReader{}
-	dl := NewDependencyLoader(resolver, depReader, gopath)
-	dl.Update = true
-	deps, err := dl.LoadAllPackageDependencies(pkg)
+	dl := NewDependencyLoader(resolver.ResolveRepo, gopath)
+	dw := NewDependencyWalker(depReader.ReadDependencies, dl.FetchUpdatePackage)
+	err := dw.TraversePackageDependencies(pkg)
 	if err != nil {
 		log.Fatalf("Error fetching packages: %s", err.Error())
 	}
-	LogVerbose("Package %s has remotes: %+v", pkg, deps)
+	LogVerbose("Package %s has remotes: %+v", pkg, dl.FetchedDeps())
 }
