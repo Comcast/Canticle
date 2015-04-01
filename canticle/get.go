@@ -21,7 +21,7 @@ var GetCommand = &Command{
 
 func (g *Get) Run(args []string) {
 
-	resolver := NewRepoDiscovery()
+	resolver := NewRepoDiscovery(os.ExpandEnv("$GOPATH"))
 	depReader := &DepReader{}
 	cdl := NewDependencyLoader(resolver, depReader, os.ExpandEnv("$GOPATH"))
 
