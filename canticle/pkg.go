@@ -126,17 +126,3 @@ func (p *Package) RemoteImports(includeTest bool) []string {
 
 	return filterStrings(imports, IsRemote)
 }
-
-// PatchEnviroment changes an enviroment variable set to
-// have a new key value
-func PatchEnviroment(env []string, key, value string) []string {
-	prefix := key + "="
-	newValue := key + "=" + value
-	for i, v := range env {
-		if strings.HasPrefix(v, prefix) {
-			env[i] = newValue
-			return env
-		}
-	}
-	return append(env, newValue)
-}

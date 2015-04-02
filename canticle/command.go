@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 )
 
 type Runnable interface {
@@ -56,7 +57,13 @@ func BuildRoot(gopath, pkg string) string {
 
 // BuildSource returns the src dir in the build root for a package.
 func BuildSource(gopath, pkg string) string {
-	return path.Join(BuildRoot(gopath, pkg), pkg)
+	return path.Join(BuildRoot(gopath, pkg), "src")
+}
+
+// PackageDir returns the directory of the package in its srcdir given
+// a gopath
+func PackageDir(gopath, pkg string) string {
+	return path.Join(BuildSource(gopath, pkg), pkg)
 }
 
 // SetupBuildRoot creates the build root for the package
@@ -81,4 +88,24 @@ func CopyToBuildRoot(gopath, buildPkg, pkg string) {
 	if err := dc.Copy(); err != nil {
 		log.Fatalf("Error copying package %s to buildroot from %s", src, dest)
 	}
+}
+
+// ParseCmdLineDeps parses an array of "dep,source dep,source"
+// into deps for use
+func ParseCmdLineDeps(args []string) []*Dependency {
+	deps := make([]*Dependency, 0, len(args))
+	for _, arg := range args {
+		pkg := strings.Split(arg, ",")
+		imp := pkg[0]
+		src := ""
+		if len(arg) == 2 {
+			src = pkg[1]
+		}
+		dep := &Dependency{
+			ImportPath: imp,
+			SourcePath: src,
+		}
+		deps = append(deps, dep)
+	}
+	return deps
 }
