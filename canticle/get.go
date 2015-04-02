@@ -17,14 +17,21 @@ var (
 	}
 	insource = get.flags.Bool("insource", false, "Get the packages to the enviroment gopath rather than the build dir")
 	verbose  = get.flags.Bool("v", false, "Be verbose when getting stuff")
+	locals   = get.flags.Bool("l", false, "Prefer local copies from the $GOPATH when getting stuff")
 )
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-insource] [-v] [-n] [package<,source>...]",
+	UsageLine:        "get [-insource] [-v] [-n] [-l] [package<,source>...]",
 	ShortDescription: "download and install dependencies as defined in Canticle file",
-	LongDescription:  `The get command will fetch the dependencies for packages into each packages Canticle build root. Which is generally at $GOPATH/build/$IMPORTPATH. If -insource is specified only one package may be specified. Instead packages will be fetched into the $GOPATH as necessary and set to the correct revision. The get command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages. If the get command is issued against a pacakge which does not exist it will also be downloaded. Specify -n to only download the target package and to not resolve target deps.`,
-	Flags:            get.flags,
-	Cmd:              get,
+	LongDescription: `The get command will fetch the dependencies for packages into each packages Canticle build root. Which is generally at $GOPATH/build/$IMPORTPATH. The get command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages. If the get command is issued against a pacakge which does not exist it will also be downloaded.
+
+If -insource is specified only one package may be specified. Instead packages will be fetched into the $GOPATH as necessary and set to the correct revision.  
+
+Specify -n to only download the target package and to not resolve target deps. 
+
+Specify -l to prefer local copies from $GOPATH when trying to fetch a package builds.`,
+	Flags: get.flags,
+	Cmd:   get,
 }
 
 func (g *Get) Run(args []string) {
@@ -50,24 +57,36 @@ func (g *Get) Run(args []string) {
 			ImportPath: imp,
 			SourcePath: src,
 		}
-		GetPackage(dep, *insource)
+		GetPackage(dep, *insource, *locals)
 	}
 }
 
 // GetPackage fetches a package and all of it dependencies to either
 // the buildroot or the gopath.
-func GetPackage(dep *Dependency, insource bool) {
+func GetPackage(dep *Dependency, insource, preferLocals bool) {
 	LogVerbose("Fetching package %+v", dep)
 	gopath := os.ExpandEnv("$GOPATH")
+	targetPath := gopath
 	if !insource {
 		pkg := dep.ImportPath
 		SetupBuildRoot(gopath, pkg)
 		CopyToBuildRoot(gopath, pkg, pkg)
-		gopath = BuildRoot(gopath, pkg)
+		targetPath = BuildRoot(gopath, pkg)
 	}
-	resolver := NewRepoDiscovery(gopath)
-	depReader := &DepReader{gopath}
-	dl := NewDependencyLoader(resolver.ResolveRepo, gopath)
+
+	var resolvers []RepoResolver
+	lr := &LocalRepoResolver{LocalPath: gopath, RemotePath: targetPath}
+	rr := &RemoteRepoResolver{targetPath}
+	dr := &DefaultRepoResolver{targetPath}
+	if preferLocals {
+		resolvers = append(resolvers, lr, rr, dr)
+	} else {
+		resolvers = append(resolvers, rr, dr, lr)
+	}
+
+	resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
+	depReader := &DepReader{targetPath}
+	dl := NewDependencyLoader(resolver.ResolveRepo, targetPath)
 	dw := NewDependencyWalker(depReader.ReadDependencies, dl.FetchUpdatePackage)
 	err := dw.TraverseDependencies(dep)
 	if err != nil {
