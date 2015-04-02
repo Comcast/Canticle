@@ -1,12 +1,22 @@
 package canticle
 
 import (
+	"flag"
 	"fmt"
 )
 
 // Build
 type Build struct {
+	flags *flag.FlagSet
 }
+
+func NewBuild() *Build {
+	f := flag.NewFlagSet("build", flag.ExitOnError)
+	b := &Build{flags: f}
+	return b
+}
+
+var b = NewBuild()
 
 // BuildCommand
 var BuildCommand = &Command{
@@ -14,7 +24,8 @@ var BuildCommand = &Command{
 	UsageLine:        ``,
 	ShortDescription: ``,
 	LongDescription:  ``,
-	Cmd:              &Build{},
+	Flags:            b.flags,
+	Cmd:              b,
 }
 
 // Run

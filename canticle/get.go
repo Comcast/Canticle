@@ -8,17 +8,24 @@ import (
 )
 
 type Get struct {
-	flags *flag.FlagSet
+	flags    *flag.FlagSet
+	insource bool
+	verbose  bool
+	locals   bool
 }
 
-var (
-	get = &Get{
-		flags: flag.NewFlagSet("get", flag.ExitOnError),
-	}
-	insource = get.flags.Bool("insource", false, "Get the packages to the enviroment gopath rather than the build dir")
-	verbose  = get.flags.Bool("v", false, "Be verbose when getting stuff")
-	locals   = get.flags.Bool("l", false, "Prefer local copies from the $GOPATH when getting stuff")
-)
+func NewGet() *Get {
+	f := flag.NewFlagSet("get", flag.ExitOnError)
+	g := &Get{flags: f}
+	f.BoolVar(&g.insource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
+	f.BoolVar(&g.verbose, "v", false, "Be verbose when getting stuff")
+	f.BoolVar(&g.locals, "l", false, "Prefer local copies from the $GOPATH when getting stuff")
+
+	return g
+}
+
+var get = NewGet()
+
 var GetCommand = &Command{
 	Name:             "get",
 	UsageLine:        "get [-insource] [-v] [-n] [-l] [package<,source>...]",
@@ -38,12 +45,13 @@ func (g *Get) Run(args []string) {
 	if err := g.flags.Parse(args); err != nil {
 		return
 	}
-	if *verbose {
+	if g.verbose {
 		Verbose = true
 	}
+	defer func() { Verbose = false }()
 
 	pkgs := g.flags.Args()
-	if *insource && len(pkgs) > 1 {
+	if g.insource && len(pkgs) > 1 {
 		log.Fatal("Get may not be run with -insource and multiple packages")
 	}
 	for _, pkg := range pkgs {
@@ -57,7 +65,7 @@ func (g *Get) Run(args []string) {
 			ImportPath: imp,
 			SourcePath: src,
 		}
-		GetPackage(dep, *insource, *locals)
+		GetPackage(dep, g.insource, g.locals)
 	}
 }
 
