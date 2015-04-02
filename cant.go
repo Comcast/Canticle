@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"text/template"
 
 	"github.comcast.com/viper-cog/cant/canticle"
 )
@@ -48,11 +49,10 @@ The commands are:
          {{.Name | printf "%-11s"}} {{.ShortDescription}}{{end}}
 
 Use "cant help [command]" for more information about that command.
-
-
 `
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: ")
+	tmpl, _ := template.New("UsageTemplate").Parse(UsageTemplate)
+	tmpl.Execute(os.Stderr, canticle.Commands)
 	os.Exit(2)
 }
