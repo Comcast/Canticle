@@ -88,6 +88,30 @@ func TestLocalRepoResolver(t *testing.T) {
 	if v.Cmd.Cmd != "git" {
 		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
 	}
+
+	// Test dealing with a package whose vcs root != the importpath
+	pkg = "golang.org/x/tools/go/vcs"
+	vcs, err = lr.ResolveRepo(pkg, "")
+	if err != nil {
+		t.Errorf("LocalRepoResolver returned error resolving our own package %s", err.Error())
+	}
+
+	if vcs == nil {
+		t.Fatalf("LocalRepoResolver returned a nil VCS resolving our own package")
+	}
+	v = vcs.(*LocalVCS)
+	expectedSrc = path.Join(lr.LocalPath, "src", "golang.org/x/tools/")
+	if v.SrcPath != expectedSrc {
+		t.Errorf("LocalRepoResolver set vcs srcpath to %s expected %s", v.SrcPath, expectedSrc)
+	}
+	expectedDest = path.Join(lr.RemotePath, "src", "golang.org/x/tools/")
+	if v.DestPath != expectedDest {
+		t.Errorf("LocalRepoResolver set vcs destpath to %s expected %s", v.SrcPath, expectedSrc)
+	}
+	if v.Cmd.Cmd != "git" {
+		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
+	}
+
 }
 
 type testResolve struct {

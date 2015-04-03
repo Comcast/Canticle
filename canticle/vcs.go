@@ -43,7 +43,6 @@ func PatchGitVCS(v *vcs.Cmd) {
 // A LocalVCS uses packages and version control systems available at a
 // local srcpath to control a local destpath (it copies the files over).
 type LocalVCS struct {
-	Root     string
 	SrcPath  string
 	DestPath string
 	Cmd      *vcs.Cmd
@@ -52,6 +51,7 @@ type LocalVCS struct {
 // Create will copy (using a dir copier) the package from srcpath to
 // destpath and then call set.
 func (lv *LocalVCS) Create(rev string) error {
+	LogVerbose("Copying localpath %s to %s", lv.SrcPath, lv.DestPath)
 	dc := NewDirCopier(lv.SrcPath, lv.DestPath)
 	dc.CopyDot = true
 	if err := dc.Copy(); err != nil {
@@ -250,10 +250,11 @@ func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 			LogVerbose("Error with local vcs: %s", err.Error())
 			return nil, err
 		}
+		src := path.Join(lr.LocalPath, root)
+		dest := path.Join(lr.RemotePath, root)
 		v := &LocalVCS{
-			Root:     root,
-			SrcPath:  localPkg,
-			DestPath: path.Join(lr.RemotePath, "src", importPath),
+			SrcPath:  src,
+			DestPath: dest,
 			Cmd:      cmd,
 		}
 		return v, nil
