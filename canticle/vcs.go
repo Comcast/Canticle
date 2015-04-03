@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
@@ -44,6 +43,7 @@ func PatchGitVCS(v *vcs.Cmd) {
 // A LocalVCS uses packages and version control systems available at a
 // local srcpath to control a local destpath (it copies the files over).
 type LocalVCS struct {
+	Root     string
 	SrcPath  string
 	DestPath string
 	Cmd      *vcs.Cmd
@@ -97,39 +97,6 @@ func restoreWD(cwd string) {
 		log.Fatalf("Error restoring working directory: %s", err.Error())
 	}
 
-}
-
-type localVCSCheckCmd struct {
-	Vcs  string
-	Cmd  string
-	Args []string
-}
-
-var localVCSList = []localVCSCheckCmd{
-	{"git", "git", []string{"rev-parse", "--is-inside-work-tree"}},
-	{"svn", "svn", []string{"info"}},
-	{"hg", "hg", []string{"root"}},
-	{"bzr", "bzr", []string{"info"}},
-}
-
-// LocalVCSCheck will attempt to resolve a vcs.Cmd for a path p. If no
-// resolution could occur nil, nil will be returned.
-func LocalVCSCheck(p string) (*vcs.Cmd, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(p); err != nil {
-		return nil, err
-	}
-	defer restoreWD(cwd)
-
-	for _, c := range localVCSList {
-		if _, err = exec.Command(c.Cmd, c.Args...).Output(); err == nil {
-			return vcs.ByCmd(c.Vcs), nil
-		}
-	}
-	return nil, nil
 }
 
 // PackageVCS wraps the underlying golang.org/x/tools/go/vcs to
@@ -191,6 +158,18 @@ type DefaultRepoResolver struct {
 	Gopath string
 }
 
+// TrimPathToRoot will take import path github.comcast.com/x/tools/go/vcs
+// and root golang.org/x/tools and create github.comcast.com/x/tools.
+func TrimPathToRoot(importPath, root string) (string, error) {
+	pathParts := strings.Split(importPath, "/")
+	rootParts := strings.Split(root, "/")
+
+	if len(pathParts) < len(rootParts) {
+		return "", fmt.Errorf("Path %s does not contain enough prefix for path %s", importPath, root)
+	}
+	return path.Join(pathParts[0:len(rootParts)]...), nil
+}
+
 func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	// We guess our vcs based off our url path if present
 	resolvePath := importPath
@@ -208,7 +187,10 @@ func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) 
 	}
 
 	// If we found something return non nil
-	repo.Root = importPath
+	repo.Root, err = TrimPathToRoot(importPath, repo.Root)
+	if err != nil {
+		return nil, err
+	}
 	v := &PackageVCS{Repo: repo, Gopath: dr.Gopath}
 	return v, nil
 }
@@ -256,24 +238,27 @@ type LocalRepoResolver struct {
 
 func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	localPkg := path.Join(lr.LocalPath, "src", importPath)
-	fmt.Printf("Localpkg: %s\n", localPkg)
+	LogVerbose("Finding local package: %s\n", localPkg)
 	s, err := os.Stat(localPkg)
 	switch {
 	case err != nil:
+		LogVerbose("Error stating local copy of package: %s %s\n", localPkg, err.Error())
 		return nil, err
 	case s != nil && s.IsDir():
-		var cmd *vcs.Cmd
-		cmd, err = LocalVCSCheck(localPkg)
+		cmd, root, err := vcs.FromDir(localPkg, lr.LocalPath)
 		if err != nil {
+			LogVerbose("Error with local vcs: %s", err.Error())
 			return nil, err
 		}
 		v := &LocalVCS{
+			Root:     root,
 			SrcPath:  localPkg,
 			DestPath: path.Join(lr.RemotePath, "src", importPath),
 			Cmd:      cmd,
 		}
 		return v, nil
 	default:
+		LogVerbose("Could not resolve local vcs for package: %s", localPkg)
 		return nil, ErrorResolutionFailure
 	}
 }

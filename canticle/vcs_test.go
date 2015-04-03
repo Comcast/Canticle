@@ -19,8 +19,8 @@ func TestDefaultRepoResolver(t *testing.T) {
 	}
 
 	v := vcs.(*PackageVCS)
-	if v.Repo.Root != importPath {
-		t.Errorf("DefaultRepoResolver did not set correct importpath for repo got %s expected %s", v.Repo.Root, importPath)
+	if v.Repo.Root != "golang.org/x/tools" {
+		t.Errorf("DefaultRepoResolver did not set correct root for repo got %s expected %s", v.Repo.Root, "golang.org/x/tools")
 	}
 	if v.Repo.Repo == "" {
 		t.Errorf("DefaultRepoResolver did not set any repo for repo %s", importPath)

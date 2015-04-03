@@ -75,7 +75,7 @@ func (b *Build) Run(args []string) {
 			log.Fatalf("Unable to chdir to buildroot %s error %s", br, err.Error())
 		}
 		cmd := exec.Command("go", "build")
-		cmd.Dir = PackageDir(gopath, dep.ImportPath)
+		cmd.Dir = PackageBuildDir(gopath, dep.ImportPath)
 		cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
 		var sout, serr bytes.Buffer
 		cmd.Stdout = &sout

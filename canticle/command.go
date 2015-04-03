@@ -60,9 +60,9 @@ func BuildSource(gopath, pkg string) string {
 	return path.Join(BuildRoot(gopath, pkg), "src")
 }
 
-// PackageDir returns the directory of the package in its srcdir given
+// PackageBuildDir returns the directory of the package in its srcdir given
 // a gopath
-func PackageDir(gopath, pkg string) string {
+func PackageBuildDir(gopath, pkg string) string {
 	return path.Join(BuildSource(gopath, pkg), pkg)
 }
 
