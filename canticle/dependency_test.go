@@ -283,7 +283,7 @@ var CycleReaderResult = []WalkCall{
 	{&Dependency{ImportPath: "dep2", Revision: "b"}, nil},
 }
 
-var testErr = errors.New("Test err")
+var errTest = errors.New("Test err")
 var ChildErrorReader = &TestDepReader{
 	map[string]TestDepRead{
 		"testpkg": TestDepRead{
@@ -303,7 +303,7 @@ var ChildErrorReader = &TestDepReader{
 			map[string]*Dependency{}, nil,
 		},
 		"dep3": TestDepRead{
-			map[string]*Dependency{}, testErr,
+			map[string]*Dependency{}, errTest,
 		},
 	},
 }
@@ -337,7 +337,7 @@ func TestTraversePackageDependencies(t *testing.T) {
 	CheckResult(t, "NormalReader", NormalReaderResult, tw.calls)
 
 	// Run a test with an error from our handler
-	tw = &TestWalker{responses: []error{nil, testErr}}
+	tw = &TestWalker{responses: []error{nil, errTest}}
 	dw = NewDependencyWalker(NormalReader.ReadDependencies, tw.HandlePackage)
 	err = dw.TraversePackageDependencies("testpkg")
 	if err == nil {
@@ -378,6 +378,7 @@ type TestVCS struct {
 	Created int
 	Err     error
 	Rev     string
+	Source  string
 }
 
 func (v *TestVCS) Create(rev string) error {
@@ -390,6 +391,14 @@ func (v *TestVCS) SetRev(rev string) error {
 	v.Rev = rev
 	v.Updated++
 	return v.Err
+}
+
+func (v *TestVCS) GetRev() (string, error) {
+	return v.Rev, v.Err
+}
+
+func (v *TestVCS) GetSource() (string, error) {
+	return v.Source, v.Err
 }
 
 type TestVCSResolve struct {
@@ -441,7 +450,7 @@ func TestFetchUpdatePackage(t *testing.T) {
 
 	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
 	dl.HaltOnError = false
-	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{testErr}); err != nil {
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{errTest}); err != nil {
 		t.Errorf("Error from fetchupdatepackage when passed an error with HaltOnError false")
 	}
 
@@ -453,8 +462,98 @@ func TestFetchUpdatePackage(t *testing.T) {
 	}
 
 	dl = NewDependencyLoader(resolver.ResolveRepo, testHome)
-	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{testErr}); err == nil {
+	if err := dl.FetchUpdatePackage(&Dependency{ImportPath: "testpkg"}, []error{errTest}); err == nil {
 		t.Errorf("No error from fetchupdatepackage when passed an error with HaltOnError true")
 	}
 
+}
+
+func TestDependencySaver(t *testing.T) {
+	testHome, err := ioutil.TempDir("", "cant-test")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testHome)
+
+	v := &TestVCS{Rev: "r1", Source: "source"}
+	resolver := &TestResolver{
+		ResolvePaths: map[string]*TestVCSResolve{
+			"testpkg": &TestVCSResolve{
+				V: v,
+			},
+		},
+	}
+
+	ds := NewDependencySaver(resolver.ResolveRepo, testHome)
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{}); err == nil {
+		t.Errorf("Did not report err loading package with no file")
+	}
+
+	name := PackageSource(testHome, "testpkg")
+	fmt.Printf("Making dir %s\n", name)
+	os.MkdirAll(name, 0755)
+
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{}); err != nil {
+		t.Errorf("Err loading valid package: %s", err.Error())
+	}
+	deps := ds.Dependencies()
+	if len(deps) != 1 {
+		t.Errorf("Err incorrect number of deps, expected 1 got %d", len(deps))
+	}
+	tp := deps["testpkg"]
+	if tp == nil {
+		t.Fatal("Err deps nil at testpkg")
+	}
+	if tp.Revision != "r1" {
+		t.Errorf("Expected testpkg revision to be r1, got %s", tp.Revision)
+	}
+	if tp.SourcePath != "source" {
+		t.Errorf("Expected testpkg revision to be source, got %s", tp.SourcePath)
+	}
+
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{errTest}); err == nil {
+		t.Errorf("Did not report err when passed err")
+	}
+
+}
+
+func TestDependenciesMarshalJSON(t *testing.T) {
+	deps := NewDependencies()
+	deps.AddDependency(&Dependency{ImportPath: "testpkg", Revision: "testrev"})
+	bytes, err := deps.MarshalJSON()
+	expectedJSON := `[{"ImportPath":"testpkg","Revision":"testrev"}]`
+	if err != nil {
+		t.Errorf("Error marshaling valid deps: %s", err.Error())
+	}
+	if string(bytes) != expectedJSON {
+		t.Errorf("Marshaled json %s did not match expected %s", string(bytes), expectedJSON)
+	}
+
+}
+
+func TestDependenciesUnmarshalJSON(t *testing.T) {
+	json :=
+		[]byte(`[
+	{
+		"ImportPath": "golang.org/x/tools/go/vcs",
+		"Revision": "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753"
+	}
+]`)
+
+	deps := NewDependencies()
+	if err := deps.UnmarshalJSON(json); err != nil {
+		t.Errorf("Error unmarshaling valid json: %s", err.Error())
+	}
+	if len(deps) != 1 {
+		t.Errorf("Dependencies did had %d elements, expected %d", len(deps), 1)
+	}
+
+	badJSON :=
+		[]byte(`{
+	"ImportPath": "golang.org/x/tools/go/vcs",
+	"Revision": "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753"
+}`)
+	if err := deps.UnmarshalJSON(badJSON); err == nil {
+		t.Errorf("No error unmarshaling invalid json")
+	}
 }

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 
 	"golang.org/x/tools/go/vcs"
@@ -16,6 +18,8 @@ import (
 type VCS interface {
 	Create(rev string) error
 	SetRev(rev string) error
+	GetRev() (string, error)
+	GetSource() (string, error)
 }
 
 // GitAtVCS creates a VCS cmd that supports the "git@blah.com:" syntax
@@ -40,12 +44,128 @@ func PatchGitVCS(v *vcs.Cmd) {
 	}
 }
 
+// A VCSCmd is used to run a VCS command for a repo
+type VCSCmd struct {
+	Name       string
+	Cmd        string
+	Args       []string
+	ParseRegex *regexp.Regexp
+}
+
+// Exec executes this command with its arguments and parses them using
+// regexp. Return an error if the command generates an error or we can
+// not parse the results.
+func (vc *VCSCmd) Exec(repo string) (string, error) {
+	LogVerbose("Running rev command: %s %v in dir %s", vc.Cmd, vc.Args, repo)
+	cmd := exec.Command(vc.Cmd, vc.Args...)
+	cmd.Dir = repo
+	result, err := cmd.CombinedOutput()
+	resultTrim := strings.TrimSpace(string(result))
+	rev := vc.ParseRegex.FindSubmatch([]byte(resultTrim))
+	switch {
+	case err != nil:
+		return "", fmt.Errorf("Error getting revision %s", result)
+	case result == nil:
+		return "", errors.New("Error vcs returned no info for revision")
+	case rev == nil:
+		return "", fmt.Errorf("Error parsing cmd result:\n%s", string(result))
+	default:
+		return string(rev[1]), nil
+	}
+}
+
+var (
+	// GitRevCmd attempts to pull the current git from a git
+	// repo. It will fail if the work tree is "dirty".
+	GitRevCmd = &VCSCmd{
+		Name:       "Git",
+		Cmd:        "git",
+		Args:       []string{"rev-parse", "HEAD"},
+		ParseRegex: regexp.MustCompile(`(\S+)`),
+	}
+	// SvnRevCmd attempts to pull the current svnversion from a svn
+	// repo.
+	SvnRevCmd = &VCSCmd{
+		Name:       "Subversion",
+		Cmd:        "svnversion",
+		ParseRegex: regexp.MustCompile(`^(\S+)$`), // svnversion doesn't have a bad exitcode if not in svndir
+	}
+	// BzrRevCmd attempts to pull the current revno from a Bazaar
+	// repo.
+	BzrRevCmd = &VCSCmd{
+		Name:       "Bazaar",
+		Cmd:        "bzr",
+		Args:       []string{"revno"},
+		ParseRegex: regexp.MustCompile(`(\S+)`),
+	}
+	// HgRevCmd attempts to pull the current node from a Mercurial
+	// repo.
+	HgRevCmd = &VCSCmd{
+		Name:       "Mercurial",
+		Cmd:        "hg",
+		Args:       []string{"log", "--template", "{node}"},
+		ParseRegex: regexp.MustCompile(`(\S+)`),
+	}
+	// RevCmds is a map of cmd (git, svn, etc.) to
+	// the cmd to parse its revision.
+	RevCmds = map[string]*VCSCmd{
+		GitRevCmd.Name: GitRevCmd,
+		SvnRevCmd.Name: SvnRevCmd,
+		BzrRevCmd.Name: BzrRevCmd,
+		HgRevCmd.Name:  HgRevCmd,
+	}
+
+	// GitRemoteCmd attempts to pull the origin of a git repo.
+	GitRemoteCmd = &VCSCmd{
+		Name:       "Git",
+		Cmd:        "git",
+		Args:       []string{"remote", "show", "origin"},
+		ParseRegex: regexp.MustCompile(`(?m)^\s*Fetch URL: (.+)$`),
+	}
+	// SvnRemoteCmd attempts to pull the origin of a svn repo.
+	SvnRemoteCmd = &VCSCmd{
+		Name:       "Subversion",
+		Cmd:        "svn",
+		Args:       []string{"info"},
+		ParseRegex: regexp.MustCompile(`^URL: (.+)$`), // svnversion doesn't have a bad exitcode if not in svndir
+	}
+	// HgRemoteCmd attempts to pull the current default paths from
+	// a Mercurial repo.
+	HgRemoteCmd = &VCSCmd{
+		Name:       "Mercurial",
+		Cmd:        "hg",
+		Args:       []string{"paths", "default"},
+		ParseRegex: regexp.MustCompile(`(.+)`),
+	}
+	// RemoteCmds is a map of cmd (git, svn, etc.) to
+	// the cmd to parse its revision.
+	RemoteCmds = map[string]*VCSCmd{
+		GitRemoteCmd.Name: GitRemoteCmd,
+		SvnRemoteCmd.Name: SvnRemoteCmd,
+		HgRemoteCmd.Name:  HgRemoteCmd,
+	}
+)
+
 // A LocalVCS uses packages and version control systems available at a
 // local srcpath to control a local destpath (it copies the files over).
 type LocalVCS struct {
-	SrcPath  string
-	DestPath string
-	Cmd      *vcs.Cmd
+	SrcPath       string
+	DestPath      string
+	Cmd           *vcs.Cmd
+	CurrentRevCmd *VCSCmd // CurrentRevCommand to check the current revision for sourcepath.
+	RemoteCmd     *VCSCmd // RemoteCmd to obtain the upstream (remote) for a repo
+}
+
+// NewLocalVCS returns a a LocalVCS with CurrentRevCmd initialized
+// from the cmd's name using RevCmds and RemoteCmd from RemoteCmds.
+func NewLocalVCS(srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
+	return &LocalVCS{
+		SrcPath:       srcPath,
+		DestPath:      destPath,
+		Cmd:           cmd,
+		CurrentRevCmd: RevCmds[cmd.Name],
+		RemoteCmd:     RemoteCmds[cmd.Name],
+	}
 }
 
 // Create will copy (using a dir copier) the package from srcpath to
@@ -69,6 +189,26 @@ func (lv *LocalVCS) SetRev(rev string) error {
 	}
 	PatchGitVCS(lv.Cmd)
 	return lv.Cmd.TagSync(lv.DestPath, rev)
+}
+
+// GetRev will return current revision of the local repo.  If the
+// local package is not under a VCS it will return nil, nil.  If the
+// vcs can not query the version it will return nil and an error.
+func (lv *LocalVCS) GetRev() (string, error) {
+	if lv.CurrentRevCmd == nil || lv.Cmd == nil {
+		return "", nil
+	}
+	return lv.CurrentRevCmd.Exec(lv.SrcPath)
+
+}
+
+// GetSource on a LocalVCS will attempt to determine the local repos
+// upstream source. See the RemoteCmd for each VCS for behavior.
+func (lv *LocalVCS) GetSource() (string, error) {
+	if lv.RemoteCmd == nil {
+		return "", nil
+	}
+	return lv.RemoteCmd.Exec(lv.SrcPath)
 }
 
 // GuessVCS attemptxs to guess the VCS given a url. This mostly relies
@@ -101,7 +241,8 @@ func restoreWD(cwd string) {
 
 // PackageVCS wraps the underlying golang.org/x/tools/go/vcs to
 // present the interface we need. It also implements the functionality
-// necessary for SetRev to happen correctly.
+// necessary for SetRev to happen correctly. Multiple PackageVCS _can
+// not be used concurrently_.
 type PackageVCS struct {
 	Repo   *vcs.RepoRoot
 	Gopath string
@@ -142,6 +283,17 @@ func (pv *PackageVCS) SetRev(rev string) error {
 	return v.TagSync(pv.Repo.Root, rev)
 }
 
+// GetRev does not work on remote VCS's and will always return a not
+// implemented error.
+func (pv *PackageVCS) GetRev() (string, error) {
+	return "", errors.New("Package VCS currently does not support GetRev")
+}
+
+// GetSource returns the pv.Repo.Repo
+func (pv *PackageVCS) GetSource() (string, error) {
+	return pv.Repo.Repo, nil
+}
+
 // ErrorResolutionFailure will be returned if a RepoResolver could not
 // resolve a VCS.
 var ErrorResolutionFailure = errors.New("Discovery failed")
@@ -170,6 +322,8 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 	return path.Join(pathParts[0:len(rootParts)]...), nil
 }
 
+// ResolveRepo on a default reporesolver is effectively go get wraped
+// to use the url string.
 func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	// We guess our vcs based off our url path if present
 	resolvePath := importPath
@@ -179,8 +333,6 @@ func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) 
 
 	fmt.Println("Guessing vcs for url: ", resolvePath)
 	vcs.Verbose = Verbose
-
-	// Next resort to the VCS (go get) guessing logic
 	repo, err := vcs.RepoRootForImportPath(resolvePath, true)
 	if err != nil {
 		return nil, err
@@ -201,6 +353,8 @@ type RemoteRepoResolver struct {
 	Gopath string
 }
 
+// ResolveRepo on the remoterepo resolver uses our own GuessVCS
+// method. It mostly looks at protocol cues like svn:// and git@.
 func (rr *RemoteRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	resolvePath := importPath
 	if url != "" {
@@ -236,8 +390,12 @@ type LocalRepoResolver struct {
 	RemotePath string
 }
 
+// ResolveRepo on a local resolver may return an error if:
+// *  The local package is not present (no directory) in LocalPath
+// *  The local "package" is a file in localpath
+// *  There was an error stating the directory for the localPkg
 func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
-	localPkg := path.Join(lr.LocalPath, "src", importPath)
+	localPkg := PackageSource(lr.LocalPath, importPath)
 	LogVerbose("Finding local package: %s\n", localPkg)
 	s, err := os.Stat(localPkg)
 	switch {
@@ -252,11 +410,8 @@ func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 		}
 		src := path.Join(lr.LocalPath, root)
 		dest := path.Join(lr.RemotePath, root)
-		v := &LocalVCS{
-			SrcPath:  src,
-			DestPath: dest,
-			Cmd:      cmd,
-		}
+		v := NewLocalVCS(src, dest, cmd)
+		LogVerbose("Created vcs for local pkg: %+v", v)
 		return v, nil
 	default:
 		LogVerbose("Could not resolve local vcs for package: %s", localPkg)
@@ -270,6 +425,9 @@ type CompositeRepoResolver struct {
 	Resolvers []RepoResolver
 }
 
+// ResolveRepo for the composite attempts its sub Resolvers in order
+// ignoring any errors. If all resolvers fail ErrorResolutionFailure
+// will be returned.
 func (cr *CompositeRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	for _, r := range cr.Resolvers {
 		vcs, err := r.ResolveRepo(importPath, url)
@@ -286,7 +444,7 @@ type resolve struct {
 }
 
 // MemoizedRepoResolver remembers the results of previously attempted
-// resolutions and will not attempt the twice.
+// resolutions and will not attempt the same resolution twice.
 type MemoizedRepoResolver struct {
 	resolvedPaths map[string]*resolve
 	resolver      RepoResolver
@@ -301,6 +459,8 @@ func NewMemoizedRepoResolver(resolver RepoResolver) *MemoizedRepoResolver {
 	}
 }
 
+// ResolveRepo on a MemoizedRepoResolver will cache the results of its
+// child resolver.
 func (mr *MemoizedRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 	r := mr.resolvedPaths[importPath]
 	if r != nil {

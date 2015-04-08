@@ -57,7 +57,9 @@ func (g *Get) Run(args []string) {
 	}
 	deps := ParseCmdLineDeps(pkgs)
 	for _, dep := range deps {
-		g.GetPackage(dep)
+		if err := g.GetPackage(dep); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

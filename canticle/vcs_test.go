@@ -1,9 +1,13 @@
 package canticle
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"testing"
+
+	"golang.org/x/tools/go/vcs"
 )
 
 func TestDefaultRepoResolver(t *testing.T) {
@@ -133,7 +137,7 @@ func (tr *testResolver) ResolveRepo(i, u string) (VCS, error) {
 
 func TestCompositeRepoResolver(t *testing.T) {
 	res := &TestVCS{}
-	tr1 := &testResolver{response: []resolve{{nil, testErr}}}
+	tr1 := &testResolver{response: []resolve{{nil, errTest}}}
 	tr2 := &testResolver{response: []resolve{{res, nil}}}
 
 	cr := &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
@@ -160,8 +164,8 @@ func TestCompositeRepoResolver(t *testing.T) {
 		t.Errorf("CompositeRepoResolver tr2 bad url")
 	}
 
-	tr1 = &testResolver{response: []resolve{{nil, testErr}}}
-	tr2 = &testResolver{response: []resolve{{nil, testErr}}}
+	tr1 = &testResolver{response: []resolve{{nil, errTest}}}
+	tr2 = &testResolver{response: []resolve{{nil, errTest}}}
 	cr = &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
 	v, err = cr.ResolveRepo(importpath, url)
 	if err != ErrorResolutionFailure {
@@ -198,4 +202,123 @@ func TestMemoizedRepoResolver(t *testing.T) {
 	}
 }
 
+var (
+	expectedRev = "testrev"
+	TestRevCmd  = &VCSCmd{
+		Name:       "Test",
+		Cmd:        "echo",
+		Args:       []string{expectedRev},
+		ParseRegex: regexp.MustCompile(`^(\S+)$`),
+	}
+)
+
 // TODO: Add coverage for LocalVCS and PackageVCS
+func TestVCSCmds(t *testing.T) {
+
+	testHome, err := ioutil.TempDir("", "cant-test")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testHome)
+
+	rev, err := TestRevCmd.Exec(testHome)
+	if err != nil {
+		t.Fatalf("Error running valid test exec command: %s", err.Error())
+	}
+	if rev != expectedRev {
+		t.Errorf("Exec not %s not match expected %s", rev, expectedRev)
+	}
+
+	rev, err = TestRevCmd.Exec("someinvaliddir")
+	if err == nil {
+		t.Fatalf("No Error running invalid test exec command")
+	}
+	if rev != "" {
+		t.Errorf("Rev returned non empty string for errored command")
+	}
+
+	TestRevCmd.Args = []string{"this should be invalid"}
+	rev, err = TestRevCmd.Exec(testHome)
+	if err == nil {
+		t.Fatalf("No Error running invalid test exec command")
+	}
+	if rev != "" {
+		t.Errorf("Exec returned non empty string for regex that did not match")
+	}
+	TestRevCmd.Args = []string{expectedRev}
+}
+
+var (
+	TestVCSCmd = &vcs.Cmd{
+		Name:        "Test",
+		Cmd:         "echo",
+		CreateCmd:   "create",
+		DownloadCmd: "download",
+		TagCmd: []vcs.TagCmd{
+			{"show-ref", `(?:tags|origin)/(\S+)$`},
+		},
+		TagLookupCmd: []vcs.TagCmd{
+			{"-n {tag}", `(\S+)$`},
+		},
+		TagSyncCmd:     "checkout {tag}",
+		TagSyncDefault: "checkout master",
+
+		Scheme:  []string{"test", "https"},
+		PingCmd: "ping {scheme}://{repo}",
+	}
+)
+
+func TestLocalVCS(t *testing.T) {
+	vcs.Verbose = true
+	testHome, err := ioutil.TempDir("", "cant-test-src")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testHome)
+
+	testDest, err := ioutil.TempDir("", "cant-test-dest")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testDest)
+
+	pkgname := "test.com/test"
+	childpkg := "test.com/test/child"
+	if err := os.MkdirAll(PackageSource(testHome, childpkg), 0755); err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+
+	v := NewLocalVCS(PackageSource(testHome, pkgname), PackageSource(testDest, pkgname), TestVCSCmd)
+	rev, err := v.GetRev()
+	if err != nil {
+		t.Fatalf("Local vcs should not return error with no rev command")
+	}
+	if rev != "" {
+		t.Errorf("Rev returned non empty string for no rev command: %s %+v", rev, v)
+	}
+
+	RevCmds[TestRevCmd.Name] = TestRevCmd
+	v = NewLocalVCS(PackageSource(testHome, pkgname), PackageSource(testDest, pkgname), TestVCSCmd)
+	rev, err = v.GetRev()
+	if err != nil {
+		t.Errorf("Error getting valid rev: %s", err.Error())
+	}
+	if rev != expectedRev {
+		t.Errorf("Rev not %s not match expected %s", rev, expectedRev)
+	}
+
+	if err := v.Create(""); err != nil {
+		t.Errorf("Error running create command with no revision: %s", err.Error())
+	}
+	s, err := os.Stat(PackageSource(testDest, childpkg))
+	if err != nil {
+		t.Errorf("Create with no revision err stating created dir: %s", err.Error())
+	}
+	if !s.IsDir() {
+		t.Errorf("Created package was a file not a dir")
+	}
+
+	if err = v.SetRev("testrev"); err != nil {
+		t.Errorf("Error setting rev to testrev: %s", err.Error())
+	}
+}

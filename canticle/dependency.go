@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -18,15 +17,48 @@ type Dependency struct {
 	Comment    string `json:",omitempty"`
 }
 
+// Dependencies is the set of Dependencies for a package. This is
+// stored as a map from ImportPath to Dependency.
 type Dependencies map[string]*Dependency
 
+// NewDependencies creates a new empty dependencies structure/
 func NewDependencies() Dependencies {
 	return make(map[string]*Dependency)
 }
 
-// Dependency returns nil if importPath is not present
+// Dependency returns nil if importPath is not present.
 func (c Dependencies) Dependency(importPath string) *Dependency {
 	return c[importPath]
+}
+
+// String will print this out as newline seperated %+v values.
+func (c Dependencies) String() string {
+	str := ""
+	for _, dep := range c {
+		str += fmt.Sprintf("%+v\n", dep)
+	}
+	return str
+}
+
+// MarshalJSON will encode this as a JSON array.
+func (c Dependencies) MarshalJSON() ([]byte, error) {
+	deps := make([]*Dependency, 0, len(c))
+	for _, dep := range c {
+		deps = append(deps, dep)
+	}
+	return json.Marshal(deps)
+}
+
+// UnmarshalJSON will decode this from a JSON array.
+func (c Dependencies) UnmarshalJSON(data []byte) error {
+	var deps []*Dependency
+	if err := json.Unmarshal(data, &deps); err != nil {
+		return err
+	}
+	for _, dep := range deps {
+		c.AddDependency(dep)
+	}
+	return nil
 }
 
 // AddDependency adds a dependency if its import path is not already
@@ -61,29 +93,30 @@ func (c Dependencies) AddDependency(dep *Dependency) []error {
 	return errs
 }
 
-// DepReaderr works in a particular gopath to read the
+// RemoveDependency will delete a dep based on its importpath from
+// this dep tree.
+func (c Dependencies) RemoveDependency(dep *Dependency) {
+	delete(c, dep.ImportPath)
+}
+
+// DepReader works in a particular gopath to read the
 // dependencies of both Canticle and non-Canticle go packages.
 type DepReader struct {
 	Gopath string
 }
 
-// ReadDependencies returns the dependencies listed in the
+// ReadCanticleDependencies returns the dependencies listed in the
 // packages Canticle file. Dependencies will never be nil.
 func (dr *DepReader) ReadCanticleDependencies(p string) (Dependencies, error) {
-	// If this package does not have canticle deps just load it
-	c, err := ioutil.ReadFile(path.Join(dr.Gopath, "src", p, "Canticle"))
-	if err != nil {
-		return NewDependencies(), err
-	}
-
-	var d []*Dependency
-	if err := json.Unmarshal(c, &d); err != nil {
-		return NewDependencies(), err
-	}
-
 	deps := NewDependencies()
-	for _, dep := range d {
-		deps[dep.ImportPath] = dep
+	f, err := os.Open(path.Join(PackageSource(dr.Gopath, p), "Canticle"))
+	if err != nil {
+		return deps, err
+	}
+
+	d := json.NewDecoder(f)
+	if err := d.Decode(&deps); err != nil {
+		return deps, err
 	}
 
 	return deps, nil
@@ -281,4 +314,70 @@ func (dl *DependencyLoader) FetchUpdatePackage(dep *Dependency, errs []error) er
 // fetchupdatepackage.
 func (dl *DependencyLoader) FetchedDeps() Dependencies {
 	return dl.deps
+}
+
+// DependencySaver is a handler for dependencies that will save all
+// dependencies current revisions. Call Dependencies() to retrieve the
+// loaded Dependencies.
+type DependencySaver struct {
+	deps    Dependencies
+	gopath  string
+	resolve ResolverFunc
+}
+
+// NewDependencySaver builds a new dependencysaver to work in the
+// specified gopath and resolve using the resolverfunc. A
+// DependencySaver should generally only be used once. A
+// DependencySaver will not attempt to load remote dependencies even
+// if the resolverfunc can handle them.
+func NewDependencySaver(resolver ResolverFunc, gopath string) *DependencySaver {
+	return &DependencySaver{
+		deps:    NewDependencies(),
+		resolve: resolver,
+		gopath:  gopath,
+	}
+}
+
+// SavePackageRevision will attempt to load the revision of the
+// package dep and add it to our Dependencies(). If errs contains any
+// errors it will halt. If the package can not be loaded from gopath
+// (is not a directory, does not exist, etc.) an error will be
+// returned.
+func (ds *DependencySaver) SavePackageRevision(dep *Dependency, errs []error) error {
+	for _, err := range errs {
+		log.Printf("Errors loading dependency: %s", err.Error())
+	}
+	if len(errs) > 0 {
+		return errors.New("Package saver halting on error")
+	}
+
+	s, err := os.Stat(PackageSource(ds.gopath, dep.ImportPath))
+	switch {
+	case s != nil && !s.IsDir():
+		return fmt.Errorf("Package %s is a file not a directory", dep.ImportPath)
+	case os.IsNotExist(err):
+		return fmt.Errorf("Package %s could not be found on disk", dep.ImportPath)
+	case err != nil:
+		return err
+	}
+	vcs, err := ds.resolve(dep.ImportPath, dep.SourcePath)
+	if err != nil {
+		return err
+	}
+	dep.Revision, err = vcs.GetRev()
+	if err != nil {
+		return err
+	}
+	dep.SourcePath, err = vcs.GetSource()
+	if err != nil {
+		return err
+	}
+	ds.deps.AddDependency(dep)
+	return nil
+}
+
+// Dependencies returns the resolved dependencies from dependency
+// saver.
+func (ds *DependencySaver) Dependencies() Dependencies {
+	return ds.deps
 }

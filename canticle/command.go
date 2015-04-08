@@ -6,14 +6,17 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
+// Runnable is used by Command to call an item with the arguments
+// pertinent to it.
 type Runnable interface {
 	Run(args []string)
 }
 
-// Command represents a canticle command to be run including:
+// Command represents a Canticle command to be run including:
 // *  Save
 // *  Build
 // *  Test
@@ -27,19 +30,25 @@ type Command struct {
 	Cmd              Runnable
 }
 
+// Commands is the prebuild list of Canticle commands.
 var Commands = map[string]*Command{
 	"build": BuildCommand,
 	"get":   GetCommand,
+	"save":  SaveCommand,
 }
 
+// Usage will print the commands UsageLine and LongDescription and
+// then os.Exit(2).
 func (c *Command) Usage() {
 	fmt.Fprintf(os.Stderr, "usage %s\n", c.UsageLine)
 	fmt.Fprintf(os.Stderr, "%s\n", c.LongDescription)
 	os.Exit(2)
 }
 
+// Verbose controls whether verbose logs will be printed from this package
 var Verbose = false
 
+// LogVerbose will log a value using log.Printf if Verbose is true.
 func LogVerbose(fmtString string, args ...interface{}) {
 	if Verbose {
 		log.Printf(fmtString, args...)
@@ -52,18 +61,23 @@ var BuildDir = "build"
 
 // BuildRoot returns the root dir for building a package.
 func BuildRoot(gopath, pkg string) string {
-	return path.Join(gopath, "build", pkg)
+	return path.Join(gopath, "build", filepath.FromSlash(pkg))
 }
 
 // BuildSource returns the src dir in the build root for a package.
 func BuildSource(gopath, pkg string) string {
-	return path.Join(BuildRoot(gopath, pkg), "src")
+	return path.Join(BuildRoot(gopath, filepath.FromSlash(pkg)), "src")
+}
+
+// PackageSource returns the src dir for a package
+func PackageSource(gopath, pkg string) string {
+	return path.Join(gopath, "src", filepath.FromSlash(pkg))
 }
 
 // PackageBuildDir returns the directory of the package in its srcdir given
 // a gopath
 func PackageBuildDir(gopath, pkg string) string {
-	return path.Join(BuildSource(gopath, pkg), pkg)
+	return path.Join(BuildSource(gopath, pkg), filepath.FromSlash(pkg))
 }
 
 // SetupBuildRoot creates the build root for the package
@@ -98,7 +112,7 @@ func ParseCmdLineDeps(args []string) []*Dependency {
 		pkg := strings.Split(arg, ",")
 		imp := pkg[0]
 		src := ""
-		if len(arg) == 2 {
+		if len(pkg) == 2 {
 			src = pkg[1]
 		}
 		dep := &Dependency{
