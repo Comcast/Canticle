@@ -104,9 +104,40 @@ func CopyToBuildRoot(gopath, buildPkg, pkg string) {
 	}
 }
 
+// PackageName returns the package name (importpath) of a path given a
+// path relative to a gopath. If path is not filepath.Rel to gopath an
+// error will be returned.
+func PackageName(gopath, path string) (string, error) {
+	path, err := filepath.Rel(gopath, path)
+	if err != nil {
+		return "", err
+	}
+
+	name := filepath.ToSlash(path)
+	return strings.TrimPrefix(name, "src/"), nil
+}
+
+// GetCurrentPackage returns the "package name" of the current working
+// directory if you the cwd is in the goroot.
+func GetCurrentPackage() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return PackageName(EnvGoPath(), cwd)
+}
+
 // ParseCmdLineDeps parses an array of "dep,source dep,source"
 // into deps for use
 func ParseCmdLineDeps(args []string) []*Dependency {
+	if len(args) == 0 {
+		pkg, err := GetCurrentPackage()
+		if err != nil {
+			log.Fatalf("Error getting current package: %s", err.Error())
+		}
+		return []*Dependency{&Dependency{ImportPath: pkg}}
+	}
 	deps := make([]*Dependency, 0, len(args))
 	for _, arg := range args {
 		pkg := strings.Split(arg, ",")
