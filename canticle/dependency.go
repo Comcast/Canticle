@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sort"
 )
 
 // A Dependency defines all information about this package.
@@ -224,7 +225,15 @@ func (dw *DependencyWalker) TraverseDependencies(dep *Dependency) error {
 		}
 
 		// Queue the child packages
-		for _, child := range children {
+		// Make sure we iterate over them in a stable manner
+		childKeys := make([]string, 0, len(children))
+		for k := range children {
+			childKeys = append(childKeys, k)
+		}
+		sort.Strings(childKeys)
+
+		for _, k := range childKeys {
+			child := children.Dependency(k)
 			LogVerbose("Package %+v has dep %+v", dep, child)
 			// If we already traversed this node don't re-queue it
 			if dw.loadedPackages.Dependency(child.ImportPath) != nil {
