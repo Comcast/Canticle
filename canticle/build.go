@@ -1,9 +1,7 @@
 package canticle
 
 import (
-	"bytes"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -12,6 +10,7 @@ import (
 // Build
 type Build struct {
 	flags        *flag.FlagSet
+	Gopath       string
 	Insource     bool
 	Verbose      bool
 	PreferLocals bool
@@ -47,48 +46,40 @@ Specify -v to print out a verbose set of operations instead of just errors.
 
 // Run
 func (b *Build) Run(args []string) {
-	g := NewGet()
 	if b.Verbose {
 		Verbose = true
 	}
 	defer func() { Verbose = false }()
-	g.Verbose = b.Verbose
-	g.Insource = b.Insource
-	g.PreferLocals = b.PreferLocals
-
-	gopath := EnvGoPath()
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("Error getting working directory: %s", err.Error())
-	}
-
+	b.Gopath = EnvGoPath()
 	deps := ParseCmdLineDeps(b.flags.Args())
 	LogVerbose("Deps: %+v", deps)
 	for _, dep := range deps {
-		LogVerbose("Building dep %s", dep.ImportPath)
-		// Grab its deps
-		g.GetPackage(dep)
-		// And build it
-		br := BuildRoot(gopath, dep.ImportPath)
-		LogVerbose("Building at buildroot: %s", br)
-		if err := os.Chdir(br); err != nil {
-			log.Fatalf("Unable to chdir to buildroot %s error %s", br, err.Error())
+		if err := b.BuildPackage(dep); err != nil {
+			log.Fatalf("Error %s building dep %s", err.Error(), dep.ImportPath)
 		}
-		cmd := exec.Command("go", "build")
-		cmd.Dir = PackageBuildDir(gopath, dep.ImportPath)
-		cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
-		var sout, serr bytes.Buffer
-		cmd.Stdout = &sout
-		cmd.Stderr = &serr
-		err := cmd.Run()
-		fmt.Println((&sout).String())
-		fmt.Fprintln(os.Stderr, (&serr).String())
-		if err != nil {
-			log.Fatalf("Error building dep %s", dep.ImportPath)
-		} else {
-			LogVerbose("Built package %s", dep.ImportPath)
-		}
-		restoreWD(cwd)
+	}
+}
+
+func (b *Build) BuildPackage(dep *Dependency) error {
+	LogVerbose("Building dep %s", dep.ImportPath)
+	// Setup our getter and grab our deps deps
+	g := NewGet()
+	g.Verbose = b.Verbose
+	g.Insource = b.Insource
+	g.PreferLocals = b.PreferLocals
+	g.GetPackage(dep)
+
+	// And build it
+	br := BuildRoot(b.Gopath, dep.ImportPath)
+	cmd := exec.Command("go", "build", dep.ImportPath)
+	cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return err
 	}
 
+	LogVerbose("Built package %s", dep.ImportPath)
+	return nil
 }
