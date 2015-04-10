@@ -11,7 +11,7 @@ import (
 type Build struct {
 	flags        *flag.FlagSet
 	Gopath       string
-	Insource     bool
+	InSource     bool
 	Verbose      bool
 	PreferLocals bool
 }
@@ -19,7 +19,7 @@ type Build struct {
 func NewBuild() *Build {
 	f := flag.NewFlagSet("build", flag.ExitOnError)
 	b := &Build{flags: f}
-	f.BoolVar(&b.Insource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
+	f.BoolVar(&b.InSource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
 	f.BoolVar(&b.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&b.PreferLocals, "l", false, "Prefer local copies from the $GOPATH when getting stuff")
 	return b
@@ -65,14 +65,16 @@ func (b *Build) BuildPackage(dep *Dependency) error {
 	// Setup our getter and grab our deps deps
 	g := NewGet()
 	g.Verbose = b.Verbose
-	g.Insource = b.Insource
+	g.InSource = b.InSource
 	g.PreferLocals = b.PreferLocals
 	g.GetPackage(dep)
 
 	// And build it
 	br := BuildRoot(b.Gopath, dep.ImportPath)
 	cmd := exec.Command("go", "build", dep.ImportPath)
-	cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
+	if !b.InSource {
+		cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()

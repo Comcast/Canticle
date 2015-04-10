@@ -9,7 +9,7 @@ import (
 
 type Get struct {
 	flags        *flag.FlagSet
-	Insource     bool
+	InSource     bool
 	Verbose      bool
 	Nodeps       bool
 	PreferLocals bool
@@ -18,7 +18,7 @@ type Get struct {
 func NewGet() *Get {
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	g := &Get{flags: f}
-	f.BoolVar(&g.Insource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
+	f.BoolVar(&g.InSource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
 	f.BoolVar(&g.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&g.Nodeps, "n", false, "Only fetch the target package, do not resolve deps")
 	f.BoolVar(&g.PreferLocals, "l", false, "Prefer local copies from the $GOPATH when getting stuff")
@@ -52,7 +52,7 @@ func (g *Get) Run(args []string) {
 	defer func() { Verbose = false }()
 
 	pkgs := g.flags.Args()
-	if g.Insource && len(pkgs) > 1 {
+	if g.InSource && len(pkgs) > 1 {
 		log.Fatal("Get may not be run with -insource and multiple packages")
 	}
 	deps := ParseCmdLineDeps(pkgs)
@@ -70,7 +70,7 @@ func (g *Get) GetPackage(dep *Dependency) error {
 	// Setup or build path
 	gopath := os.ExpandEnv("$GOPATH")
 	targetPath := gopath
-	if !g.Insource {
+	if !g.InSource {
 		pkg := dep.ImportPath
 		SetupBuildRoot(gopath, pkg)
 		CopyToBuildRoot(gopath, pkg, pkg)
