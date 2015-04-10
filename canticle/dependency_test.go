@@ -379,6 +379,7 @@ type TestVCS struct {
 	Err     error
 	Rev     string
 	Source  string
+	Root    string
 }
 
 func (v *TestVCS) Create(rev string) error {
@@ -399,6 +400,10 @@ func (v *TestVCS) GetRev() (string, error) {
 
 func (v *TestVCS) GetSource() (string, error) {
 	return v.Source, v.Err
+}
+
+func (v *TestVCS) GetRoot() string {
+	return v.Root
 }
 
 type TestVCSResolve struct {
@@ -475,40 +480,66 @@ func TestDependencySaver(t *testing.T) {
 	}
 	defer os.RemoveAll(testHome)
 
-	v := &TestVCS{Rev: "r1", Source: "source"}
+	v := &TestVCS{
+		Rev:    "r1",
+		Root:   "blah.com/root",
+		Source: "git@blah.com:root.git",
+	}
+	v2 := &TestVCS{
+		Rev:    "r1",
+		Root:   "blah.com/root",
+		Source: "git@blah.com:root.git",
+	}
+	childpkg := "blah.com/root/child"
+	rootpkg := "blah.com/root"
 	resolver := &TestResolver{
 		ResolvePaths: map[string]*TestVCSResolve{
-			"testpkg": &TestVCSResolve{
+			childpkg: &TestVCSResolve{
 				V: v,
+			},
+			rootpkg: &TestVCSResolve{
+				V: v2,
 			},
 		},
 	}
 
 	ds := NewDependencySaver(resolver.ResolveRepo, testHome)
-	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{}); err == nil {
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: childpkg}, []error{}); err == nil {
 		t.Errorf("Did not report err loading package with no file")
 	}
 
-	name := PackageSource(testHome, "testpkg")
+	name := PackageSource(testHome, childpkg)
 	fmt.Printf("Making dir %s\n", name)
 	os.MkdirAll(name, 0755)
 
-	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{}); err != nil {
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: childpkg}, []error{}); err != nil {
 		t.Errorf("Err loading valid package: %s", err.Error())
 	}
 	deps := ds.Dependencies()
 	if len(deps) != 1 {
 		t.Errorf("Err incorrect number of deps, expected 1 got %d", len(deps))
 	}
-	tp := deps["testpkg"]
+	tp := deps[rootpkg]
 	if tp == nil {
 		t.Fatal("Err deps nil at testpkg")
 	}
-	if tp.Revision != "r1" {
-		t.Errorf("Expected testpkg revision to be r1, got %s", tp.Revision)
+	if tp.Revision != v.Rev {
+		t.Errorf("Expected testpkg revision to be %s, got %s", v.Rev, tp.Revision)
 	}
-	if tp.SourcePath != "source" {
-		t.Errorf("Expected testpkg revision to be source, got %s", tp.SourcePath)
+	if tp.SourcePath != v.Source {
+		t.Errorf("Expected source %s, got %s", v.Source, tp.SourcePath)
+	}
+
+	if err := ds.SavePackageRevision(&Dependency{ImportPath: rootpkg}, []error{}); err != nil {
+		t.Errorf("Error loading valid package: %s", err)
+	}
+	deps = ds.Dependencies()
+	if len(deps) != 1 {
+		t.Errorf("Err incorrect number of deps, expected 1 got %d", len(deps))
+	}
+	tp = deps[rootpkg]
+	if tp == nil {
+		t.Fatal("Err deps nil at testpkg")
 	}
 
 	if err := ds.SavePackageRevision(&Dependency{ImportPath: "testpkg"}, []error{errTest}); err == nil {

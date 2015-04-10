@@ -3,7 +3,6 @@ package canticle
 import (
 	"io/ioutil"
 	"os"
-	"path"
 	"regexp"
 	"testing"
 
@@ -45,10 +44,11 @@ func TestRemoteRepoResolver(t *testing.T) {
 		t.Fatalf("RemoteRepoResolverResolveRepo returned nil vcs for repo: %s %s", importPath, url)
 	}
 	v := vcs.(*PackageVCS)
-	if v.Repo.Root != importPath {
-		t.Errorf("RemoteRepoResolver did not set correct importpath for repo got %s expected %s", v.Repo.Root, importPath)
+	expectedRoot := "github.comcast.com/viper-cog/cant"
+	if v.Repo.Root != expectedRoot {
+		t.Errorf("RemoteRepoResolver did not set correct root for repo got %s expected %s", v.Repo.Root, expectedRoot)
 	}
-	expectedURL := "github.comcast.com:viper-cog/cant.git"
+	expectedURL := "git@github.comcast.com:viper-cog/cant.git"
 	if v.Repo.Repo != expectedURL {
 		t.Errorf("ResolveRepo did not set correct repo for repo got %s expected %s", v.Repo.Repo, expectedURL)
 	}
@@ -81,14 +81,6 @@ func TestLocalRepoResolver(t *testing.T) {
 		t.Fatalf("LocalRepoResolver returned a nil VCS resolving our own package")
 	}
 	v := vcs.(*LocalVCS)
-	expectedSrc := path.Join(lr.LocalPath, "src", pkg)
-	if v.SrcPath != expectedSrc {
-		t.Errorf("LocalRepoResolver set vcs srcpath to %s expected %s", v.SrcPath, expectedSrc)
-	}
-	expectedDest := path.Join(lr.RemotePath, "src", pkg)
-	if v.DestPath != expectedDest {
-		t.Errorf("LocalRepoResolver set vcs destpath to %s expected %s", v.SrcPath, expectedSrc)
-	}
 	if v.Cmd.Cmd != "git" {
 		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
 	}
@@ -104,14 +96,6 @@ func TestLocalRepoResolver(t *testing.T) {
 		t.Fatalf("LocalRepoResolver returned a nil VCS resolving our own package")
 	}
 	v = vcs.(*LocalVCS)
-	expectedSrc = path.Join(lr.LocalPath, "src", "golang.org/x/tools/")
-	if v.SrcPath != expectedSrc {
-		t.Errorf("LocalRepoResolver set vcs srcpath to %s expected %s", v.SrcPath, expectedSrc)
-	}
-	expectedDest = path.Join(lr.RemotePath, "src", "golang.org/x/tools/")
-	if v.DestPath != expectedDest {
-		t.Errorf("LocalRepoResolver set vcs destpath to %s expected %s", v.SrcPath, expectedSrc)
-	}
 	if v.Cmd.Cmd != "git" {
 		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
 	}
@@ -288,7 +272,7 @@ func TestLocalVCS(t *testing.T) {
 		t.Fatalf("Error creating tempdir: %s", err.Error())
 	}
 
-	v := NewLocalVCS(PackageSource(testHome, pkgname), PackageSource(testDest, pkgname), TestVCSCmd)
+	v := NewLocalVCS(childpkg, pkgname, testHome, testDest, TestVCSCmd)
 	rev, err := v.GetRev()
 	if err != nil {
 		t.Fatalf("Local vcs should not return error with no rev command")
@@ -298,7 +282,7 @@ func TestLocalVCS(t *testing.T) {
 	}
 
 	RevCmds[TestRevCmd.Name] = TestRevCmd
-	v = NewLocalVCS(PackageSource(testHome, pkgname), PackageSource(testDest, pkgname), TestVCSCmd)
+	v = NewLocalVCS(childpkg, pkgname, testHome, testDest, TestVCSCmd)
 	rev, err = v.GetRev()
 	if err != nil {
 		t.Errorf("Error getting valid rev: %s", err.Error())

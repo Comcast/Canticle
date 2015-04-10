@@ -208,6 +208,7 @@ func (dw *DependencyWalker) TraverseDependencies(dep *Dependency) error {
 		dep = dw.depsQueue[0]
 		dw.depsQueue = dw.depsQueue[1:]
 		errs := dw.loadedPackages.AddDependency(dep)
+		LogVerbose("Handling dep: %+v", dep)
 
 		// Inform our handler of this package
 		err := dw.handleDep(dep, errs)
@@ -279,6 +280,7 @@ func NewDependencyLoader(resolver ResolverFunc, gopath string) *DependencyLoader
 // defined by the Dependency or if no version is defined will use
 // the VCS default.
 func (dl *DependencyLoader) FetchUpdatePackage(dep *Dependency, errs []error) error {
+	LogVerbose("DepLoader handling dep: %+v", dep)
 	if len(errs) > 0 {
 		for _, err := range errs {
 			log.Printf("Errors loading dependency: %s", err.Error())
@@ -373,15 +375,22 @@ func (ds *DependencySaver) SavePackageRevision(dep *Dependency, errs []error) er
 	if err != nil {
 		return err
 	}
-	dep.Revision, err = vcs.GetRev()
+	root := vcs.GetRoot()
+	if ds.deps.Dependency(root) != nil {
+		return nil
+	}
+	var newDep Dependency
+	newDep = *dep
+	newDep.Revision, err = vcs.GetRev()
 	if err != nil {
 		return err
 	}
-	dep.SourcePath, err = vcs.GetSource()
+	newDep.SourcePath, err = vcs.GetSource()
 	if err != nil {
 		return err
 	}
-	ds.deps.AddDependency(dep)
+	newDep.ImportPath = root
+	ds.deps.AddDependency(&newDep)
 	return nil
 }
 

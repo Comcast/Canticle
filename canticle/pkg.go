@@ -2,6 +2,7 @@ package canticle
 
 import (
 	"encoding/json"
+	"errors"
 	"go/build"
 	"os"
 	"os/exec"
@@ -102,10 +103,11 @@ func filterStrings(strings []string, f func(string) bool) []string {
 // errors.
 func LoadPackage(pkgPath, gohome string) (*Package, error) {
 	cmd := exec.Command("go", "list", "--json", pkgPath)
+	LogVerbose("Running command go list --json %s", pkgPath)
 	cmd.Env = PatchEnviroment(os.Environ(), "GOHOME", gohome)
-	result, err := cmd.Output()
+	result, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return nil, errors.New(string(result))
 	}
 
 	pkg := &Package{}

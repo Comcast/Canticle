@@ -71,7 +71,7 @@ func (s *Save) LocalDeps(dep *Dependency) (Dependencies, error) {
 	// And walk it
 	err := dw.TraverseDependencies(dep)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching packages: %s", err.Error())
+		return nil, fmt.Errorf("Error saving packages: %s", err.Error())
 	}
 	LogVerbose("Package %+v has remotes: %+v", dep, ds.Dependencies())
 

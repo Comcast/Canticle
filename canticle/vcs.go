@@ -20,12 +20,14 @@ type VCS interface {
 	SetRev(rev string) error
 	GetRev() (string, error)
 	GetSource() (string, error)
+	GetRoot() string
 }
 
 // GitAtVCS creates a VCS cmd that supports the "git@blah.com:" syntax
 func GitAtVCS() *vcs.Cmd {
 	v := &vcs.Cmd{}
 	*v = *vcs.ByCmd("git")
+	v.Name = "Git@"
 	v.CreateCmd = "clone git@{repo} {dir}"
 	v.PingCmd = "ls-remote {scheme}@{repo}"
 	v.Scheme = []string{"git"}
@@ -149,6 +151,8 @@ var (
 // A LocalVCS uses packages and version control systems available at a
 // local srcpath to control a local destpath (it copies the files over).
 type LocalVCS struct {
+	Package       string
+	Root          string
 	SrcPath       string
 	DestPath      string
 	Cmd           *vcs.Cmd
@@ -158,8 +162,10 @@ type LocalVCS struct {
 
 // NewLocalVCS returns a a LocalVCS with CurrentRevCmd initialized
 // from the cmd's name using RevCmds and RemoteCmd from RemoteCmds.
-func NewLocalVCS(srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
+func NewLocalVCS(pkg, root, srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
 	return &LocalVCS{
+		Package:       pkg,
+		Root:          root,
 		SrcPath:       srcPath,
 		DestPath:      destPath,
 		Cmd:           cmd,
@@ -171,8 +177,10 @@ func NewLocalVCS(srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
 // Create will copy (using a dir copier) the package from srcpath to
 // destpath and then call set.
 func (lv *LocalVCS) Create(rev string) error {
-	LogVerbose("Copying localpath %s to %s", lv.SrcPath, lv.DestPath)
-	dc := NewDirCopier(lv.SrcPath, lv.DestPath)
+	src := PackageSource(lv.SrcPath, lv.Root)
+	dest := PackageSource(lv.DestPath, lv.Root)
+	LogVerbose("Copying localpath %s to %s", src, dest)
+	dc := NewDirCopier(src, dest)
 	dc.CopyDot = true
 	if err := dc.Copy(); err != nil {
 		return err
@@ -188,7 +196,7 @@ func (lv *LocalVCS) SetRev(rev string) error {
 		return nil
 	}
 	PatchGitVCS(lv.Cmd)
-	return lv.Cmd.TagSync(lv.DestPath, rev)
+	return lv.Cmd.TagSync(PackageSource(lv.DestPath, lv.Root), rev)
 }
 
 // GetRev will return current revision of the local repo.  If the
@@ -198,7 +206,7 @@ func (lv *LocalVCS) GetRev() (string, error) {
 	if lv.CurrentRevCmd == nil || lv.Cmd == nil {
 		return "", nil
 	}
-	return lv.CurrentRevCmd.Exec(lv.SrcPath)
+	return lv.CurrentRevCmd.Exec(PackageSource(lv.SrcPath, lv.Root))
 
 }
 
@@ -208,28 +216,51 @@ func (lv *LocalVCS) GetSource() (string, error) {
 	if lv.RemoteCmd == nil {
 		return "", nil
 	}
-	return lv.RemoteCmd.Exec(lv.SrcPath)
+	return lv.RemoteCmd.Exec(PackageSource(lv.SrcPath, lv.Root))
 }
 
-// GuessVCS attemptxs to guess the VCS given a url. This mostly relies
-// on the protocols like "ssh://" etc.
-func GuessVCS(url string) (v *vcs.Cmd, repo, scheme string) {
-	switch {
-	case strings.HasPrefix(url, "git+ssh://"):
-		return vcs.ByCmd("git"), strings.TrimPrefix(url, "git+ssh://"), "git+ssh"
-	case strings.HasPrefix(url, "git://"):
-		return vcs.ByCmd("git"), strings.TrimPrefix(url, "git://"), "git+ssh"
-	case strings.HasPrefix(url, "git@"):
-		return GitAtVCS(), strings.TrimPrefix(url, "git@"), "git"
-	case strings.HasPrefix(url, "ssh://hg@"):
-		return vcs.ByCmd("hg"), strings.TrimPrefix(url, "ssh://"), "ssh"
-	case strings.HasPrefix(url, "svn://"):
-		return vcs.ByCmd("svn"), strings.TrimPrefix(url, "svn://"), "svn"
-	case strings.HasPrefix(url, "bzr://"):
-		return vcs.ByCmd("bzr"), strings.TrimPrefix(url, "bzr://"), "bzr"
-	default:
-		return nil, "", ""
+// GetRoot on a LocalVCS will return PackageName for SrcPath
+func (lv *LocalVCS) GetRoot() string {
+	return lv.Root
+}
+
+// VCSType represents a prefix to look for, a scheme to ping a path
+// with and a VCS command to do the pinging.
+type VCSType struct {
+	Prefix string
+	Scheme string
+	VCS    *vcs.Cmd
+}
+
+// VCSTypes is the list of VCSType used by GuessVCS
+var VCSTypes = []VCSType{
+	{"git+ssh://", "git+ssh", vcs.ByCmd("git")},
+	{"git://", "git", vcs.ByCmd("git")},
+	{"git@", "git", GitAtVCS()},
+	{"ssh://hg@", "ssh", vcs.ByCmd("hg")},
+	{"svn://", "svn", vcs.ByCmd("svn")},
+	{"bzr://", "bzr", vcs.ByCmd("bzr")},
+}
+
+// GuessVCS attempts to guess the VCS given a url. This uses the
+// VCSTypes array, checking for prefixes that match and attempting to
+// ping the VCS with the given scheme
+func GuessVCS(url string) *vcs.Cmd {
+	for _, vt := range VCSTypes {
+		if !strings.HasPrefix(url, vt.Prefix) {
+			continue
+		}
+		path := strings.TrimPrefix(url, vt.Scheme)
+		path = strings.TrimPrefix(path, "://")
+		path = strings.TrimPrefix(path, "@")
+		LogVerbose("Pinging path %s with scheme %s for vcs %s", path, vt.Scheme, vt.VCS.Name)
+		if err := vt.VCS.Ping(vt.Scheme, path); err != nil {
+			LogVerbose("Error pinging path %s with scheme %s", path, vt.Scheme)
+			continue
+		}
+		return vt.VCS
 	}
+	return nil
 }
 
 func restoreWD(cwd string) {
@@ -287,6 +318,11 @@ func (pv *PackageVCS) SetRev(rev string) error {
 // implemented error.
 func (pv *PackageVCS) GetRev() (string, error) {
 	return "", errors.New("Package VCS currently does not support GetRev")
+}
+
+// GetRoot will return pv.Repo.Root
+func (pv *PackageVCS) GetRoot() string {
+	return pv.Repo.Root
 }
 
 // GetSource returns the pv.Repo.Repo
@@ -361,25 +397,20 @@ func (rr *RemoteRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 		resolvePath = url
 	}
 	// Attempt our internal guessing logic first
-	guess, path, scheme := GuessVCS(resolvePath)
-	if guess == nil {
+	v := GuessVCS(resolvePath)
+	if v == nil {
 		return nil, ErrorResolutionFailure
 	}
-	LogVerbose("Pinging path %s for vcs %v with scheme %s\n", path, guess, scheme)
-	err := guess.Ping(scheme, path)
-	if err != nil {
-		return nil, ErrorResolutionFailure
-	}
-	guess.Scheme = []string{scheme}
-	v := &PackageVCS{
+
+	pv := &PackageVCS{
 		Repo: &vcs.RepoRoot{
-			VCS:  guess,
-			Repo: path,
+			VCS:  v,
+			Repo: url,
 			Root: importPath,
 		},
 		Gopath: rr.Gopath,
 	}
-	return v, nil
+	return pv, nil
 }
 
 // LocalRepoResolver will attempt to find local copies of a repo in
@@ -408,9 +439,8 @@ func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
 			LogVerbose("Error with local vcs: %s", err.Error())
 			return nil, err
 		}
-		src := path.Join(lr.LocalPath, root)
-		dest := path.Join(lr.RemotePath, root)
-		v := NewLocalVCS(src, dest, cmd)
+		root, _ = PackageName(lr.LocalPath, path.Join(lr.LocalPath, root))
+		v := NewLocalVCS(importPath, root, lr.LocalPath, lr.RemotePath, cmd)
 		LogVerbose("Created vcs for local pkg: %+v", v)
 		return v, nil
 	default:
