@@ -41,14 +41,13 @@ func (s *Save) Run(args []string) {
 	}
 	defer func() { Verbose = false }()
 
-	pkgs := s.flags.Args()
-	deps := ParseCmdLineDeps(pkgs)
-	for _, dep := range deps {
-		ldeps, err := s.LocalDeps(dep)
+	pkgs := ParseCmdLinePackages(s.flags.Args())
+	for _, pkg := range pkgs {
+		ldeps, err := s.LocalDeps(pkg)
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = s.SaveDeps(dep, ldeps)
+		err = s.SaveDeps(pkg, ldeps)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,36 +56,36 @@ func (s *Save) Run(args []string) {
 
 // LocalDeps reads a packages dependencies on disk an there
 // versions and remotes.
-func (s *Save) LocalDeps(dep *Dependency) (Dependencies, error) {
-	LogVerbose("Save dependencies for package %+v", dep)
+func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
+	LogVerbose("Save dependencies for package %+v", pkg)
 	gopath := EnvGoPath()
 
 	// Setup our resolvers, loaders, and walkers
 	lr := &LocalRepoResolver{LocalPath: gopath}
 	resolver := NewMemoizedRepoResolver(lr)
 	depReader := &DepReader{gopath}
-	ds := NewDependencySaver(resolver.ResolveRepo, gopath)
-	dw := NewDependencyWalker(depReader.ReadDependencies, ds.SavePackageRevision)
+	ds := NewDependencySaver(resolver, gopath)
+	dw := NewDependencyWalker(depReader.ReadRemoteDependencies, ds.SavePackageRevision)
 
 	// And walk it
-	err := dw.TraverseDependencies(dep)
+	err := dw.TraverseDependencies(pkg)
 	if err != nil {
 		return nil, fmt.Errorf("Error saving packages: %s", err.Error())
 	}
-	LogVerbose("Package %+v has remotes: %+v", dep, ds.Dependencies())
+	LogVerbose("Package %s has remotes: %+v", pkg, ds.Dependencies())
 
 	return ds.Dependencies(), nil
 }
 
 // SaveDeps saves a canticle file into deps containing deps.
-func (s *Save) SaveDeps(dep *Dependency, deps Dependencies) error {
+func (s *Save) SaveDeps(pkg string, deps Dependencies) error {
 	// Filter dep from deps
-	deps.RemoveDependency(dep)
+	deps.RemoveRoot(pkg)
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return err
 	}
 
-	cantFile := path.Join(PackageSource(EnvGoPath(), dep.ImportPath), "Canticle")
+	cantFile := path.Join(PackageSource(EnvGoPath(), pkg), "Canticle")
 	return ioutil.WriteFile(cantFile, j, 0644)
 }

@@ -30,7 +30,7 @@ var get = NewGet()
 
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-insource] [-v] [-n] [-l] [package<,source>...]",
+	UsageLine:        "get [-insource] [-v] [-n] [-l] [package...]",
 	ShortDescription: "download dependencies as defined in Canticle file",
 	LongDescription: `The get command will fetch the dependencies for packages into each packages Canticle build root. Which is generally at $GOPATH/build/$IMPORTPATH. The get command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages. If the get command is issued against a pacakge which does not exist it will also be downloaded.
 
@@ -51,13 +51,13 @@ func (g *Get) Run(args []string) {
 	}
 	defer func() { Verbose = false }()
 
-	pkgs := g.flags.Args()
-	if g.InSource && len(pkgs) > 1 {
+	pkgArgs := g.flags.Args()
+	if g.InSource && len(pkgArgs) > 1 {
 		log.Fatal("Get may not be run with -insource and multiple packages")
 	}
-	deps := ParseCmdLineDeps(pkgs)
-	for _, dep := range deps {
-		if err := g.GetPackage(dep); err != nil {
+	pkgs := ParseCmdLinePackages(pkgArgs)
+	for _, pkg := range pkgs {
+		if err := g.GetPackage(pkg); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -65,13 +65,12 @@ func (g *Get) Run(args []string) {
 
 // GetPackage fetches a package and all of it dependencies to either
 // the buildroot or the gopath.
-func (g *Get) GetPackage(dep *Dependency) error {
-	LogVerbose("Fetching package %+v", dep)
+func (g *Get) GetPackage(pkg string) error {
+	LogVerbose("Fetching package %+v", pkg)
 	// Setup or build path
 	gopath := os.ExpandEnv("$GOPATH")
 	targetPath := gopath
 	if !g.InSource {
-		pkg := dep.ImportPath
 		SetupBuildRoot(gopath, pkg)
 		CopyToBuildRoot(gopath, pkg, pkg)
 		targetPath = BuildRoot(gopath, pkg)
@@ -89,15 +88,15 @@ func (g *Get) GetPackage(dep *Dependency) error {
 	}
 	resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
 	depReader := &DepReader{targetPath}
-	dl := NewDependencyLoader(resolver.ResolveRepo, targetPath)
-	dw := NewDependencyWalker(depReader.ReadDependencies, dl.FetchUpdatePackage)
+	dl := NewDependencyLoader(resolver, depReader.ReadCanticleDependencies, targetPath)
+	dw := NewDependencyWalker(depReader.ReadRemoteDependencies, dl.FetchUpdatePackage)
 
 	// And walk it
-	err := dw.TraverseDependencies(dep)
+	err := dw.TraverseDependencies(pkg)
 	if err != nil {
 		return fmt.Errorf("Error fetching packages: %s", err.Error())
 	}
-	LogVerbose("Package %+v has remotes: %+v", dep, dl.FetchedDeps())
+	LogVerbose("Package %+v has deps: %+v", pkg, dl.FetchedDeps())
 
 	return nil
 }

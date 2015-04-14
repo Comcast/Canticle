@@ -1,6 +1,7 @@
 package canticle
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -8,6 +9,8 @@ import (
 
 	"golang.org/x/tools/go/vcs"
 )
+
+var errTest = errors.New("Test err")
 
 func TestDefaultRepoResolver(t *testing.T) {
 	dr := &DefaultRepoResolver{os.ExpandEnv("$GOPATH")}
@@ -100,6 +103,39 @@ func TestLocalRepoResolver(t *testing.T) {
 		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
 	}
 
+}
+
+type TestVCS struct {
+	Updated int
+	Created int
+	Err     error
+	Rev     string
+	Source  string
+	Root    string
+}
+
+func (v *TestVCS) Create(rev string) error {
+	v.Rev = rev
+	v.Created++
+	return v.Err
+}
+
+func (v *TestVCS) SetRev(rev string) error {
+	v.Rev = rev
+	v.Updated++
+	return v.Err
+}
+
+func (v *TestVCS) GetRev() (string, error) {
+	return v.Rev, v.Err
+}
+
+func (v *TestVCS) GetSource() (string, error) {
+	return v.Source, v.Err
+}
+
+func (v *TestVCS) GetRoot() string {
+	return v.Root
 }
 
 type testResolve struct {

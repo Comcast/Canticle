@@ -121,8 +121,8 @@ var (
 	GitRemoteCmd = &VCSCmd{
 		Name:       "Git",
 		Cmd:        "git",
-		Args:       []string{"remote", "show", "origin"},
-		ParseRegex: regexp.MustCompile(`(?m)^\s*Fetch URL: (.+)$`),
+		Args:       []string{"ls-remote", "--get-url", "origin"},
+		ParseRegex: regexp.MustCompile(`^(.+)$`),
 	}
 	// SvnRemoteCmd attempts to pull the origin of a svn repo.
 	SvnRemoteCmd = &VCSCmd{
@@ -335,9 +335,9 @@ func (pv *PackageVCS) GetSource() (string, error) {
 var ErrorResolutionFailure = errors.New("Discovery failed")
 
 // RepoResolver provides the mechanisms for resolving a VCS from an
-// importpath and sourcepath.
+// importpath and sourceUrl.
 type RepoResolver interface {
-	ResolveRepo(importPath, url string) (VCS, error)
+	ResolveRepo(importPath, sourceUrl string) (VCS, error)
 }
 
 // DefaultRepoResolver attempts to resolve a repo using the go
@@ -367,19 +367,22 @@ func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) 
 		resolvePath = url
 	}
 
-	fmt.Println("Guessing vcs for url: ", resolvePath)
+	LogVerbose("Attempting to use go get vcs for url: %s", resolvePath)
 	vcs.Verbose = Verbose
 	repo, err := vcs.RepoRootForImportPath(resolvePath, true)
 	if err != nil {
+		LogVerbose("Failed creating VCS for url: %s, err: %s", resolvePath, err.Error())
 		return nil, err
 	}
 
 	// If we found something return non nil
 	repo.Root, err = TrimPathToRoot(importPath, repo.Root)
 	if err != nil {
+		LogVerbose("Failed creating VCS for url: %s, err: %s", resolvePath, err.Error())
 		return nil, err
 	}
 	v := &PackageVCS{Repo: repo, Gopath: dr.Gopath}
+	LogVerbose("Created VCS for url: %s", resolvePath)
 	return v, nil
 }
 

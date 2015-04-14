@@ -30,7 +30,7 @@ var b = NewBuild()
 // BuildCommand
 var BuildCommand = &Command{
 	Name:             "build",
-	UsageLine:        `build [-insource] [-v] [-l] [package,<source>...]`,
+	UsageLine:        `build [-insource] [-v] [-l] [package...]`,
 	ShortDescription: `download dependencies as defined in the packages Canticle file and build the project`,
 	LongDescription: `The build command first gets the packages (see cant get help). The build command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages.
 
@@ -51,27 +51,27 @@ func (b *Build) Run(args []string) {
 	}
 	defer func() { Verbose = false }()
 	b.Gopath = EnvGoPath()
-	deps := ParseCmdLineDeps(b.flags.Args())
-	LogVerbose("Deps: %+v", deps)
-	for _, dep := range deps {
-		if err := b.BuildPackage(dep); err != nil {
-			log.Fatalf("Error %s building dep %s", err.Error(), dep.ImportPath)
+	pkgs := ParseCmdLinePackages(b.flags.Args())
+	LogVerbose("Build packages: %+v", pkgs)
+	for _, pkg := range pkgs {
+		if err := b.BuildPackage(pkg); err != nil {
+			log.Fatalf("Error %s building pkg %s", err.Error(), pkg)
 		}
 	}
 }
 
-func (b *Build) BuildPackage(dep *Dependency) error {
-	LogVerbose("Building dep %s", dep.ImportPath)
+func (b *Build) BuildPackage(pkg string) error {
+	LogVerbose("Building package %s", pkg)
 	// Setup our getter and grab our deps deps
 	g := NewGet()
 	g.Verbose = b.Verbose
 	g.InSource = b.InSource
 	g.PreferLocals = b.PreferLocals
-	g.GetPackage(dep)
+	g.GetPackage(pkg)
 
 	// And build it
-	br := BuildRoot(b.Gopath, dep.ImportPath)
-	cmd := exec.Command("go", "build", dep.ImportPath)
+	br := BuildRoot(b.Gopath, pkg)
+	cmd := exec.Command("go", "build", pkg)
 	if !b.InSource {
 		cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", br)
 	}
@@ -82,6 +82,6 @@ func (b *Build) BuildPackage(dep *Dependency) error {
 		return err
 	}
 
-	LogVerbose("Built package %s", dep.ImportPath)
+	LogVerbose("Built package %s", pkg)
 	return nil
 }
