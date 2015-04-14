@@ -149,7 +149,7 @@ type TestResolver struct {
 	ResolvePaths map[string]*TestVCSResolve
 }
 
-func (tr *TestResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (tr *TestResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	r := tr.ResolvePaths[importPath]
 	return r.V, r.Err
 }

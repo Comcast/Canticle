@@ -337,7 +337,7 @@ var ErrorResolutionFailure = errors.New("Discovery failed")
 // RepoResolver provides the mechanisms for resolving a VCS from an
 // importpath and sourceUrl.
 type RepoResolver interface {
-	ResolveRepo(importPath, sourceUrl string) (VCS, error)
+	ResolveRepo(importPath string, dep *Dependency) (VCS, error)
 }
 
 // DefaultRepoResolver attempts to resolve a repo using the go
@@ -360,11 +360,11 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 
 // ResolveRepo on a default reporesolver is effectively go get wraped
 // to use the url string.
-func (dr *DefaultRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (dr *DefaultRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	// We guess our vcs based off our url path if present
 	resolvePath := importPath
-	if url != "" {
-		resolvePath = url
+	if dep != nil && dep.SourcePath != "" {
+		resolvePath = dep.SourcePath
 	}
 
 	LogVerbose("Attempting to use go get vcs for url: %s", resolvePath)
@@ -394,22 +394,27 @@ type RemoteRepoResolver struct {
 
 // ResolveRepo on the remoterepo resolver uses our own GuessVCS
 // method. It mostly looks at protocol cues like svn:// and git@.
-func (rr *RemoteRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	resolvePath := importPath
-	if url != "" {
-		resolvePath = url
+	if dep != nil && dep.SourcePath != "" {
+		resolvePath = dep.SourcePath
 	}
 	// Attempt our internal guessing logic first
+	LogVerbose("Attempting to use default resolver for url: %s", resolvePath)
 	v := GuessVCS(resolvePath)
 	if v == nil {
 		return nil, ErrorResolutionFailure
 	}
 
+	root := dep.Root
+	if root == "" {
+		root = importPath
+	}
 	pv := &PackageVCS{
 		Repo: &vcs.RepoRoot{
 			VCS:  v,
-			Repo: url,
-			Root: importPath,
+			Repo: resolvePath,
+			Root: root,
 		},
 		Gopath: rr.Gopath,
 	}
@@ -428,7 +433,7 @@ type LocalRepoResolver struct {
 // *  The local package is not present (no directory) in LocalPath
 // *  The local "package" is a file in localpath
 // *  There was an error stating the directory for the localPkg
-func (lr *LocalRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (lr *LocalRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	localPkg := PackageSource(lr.LocalPath, importPath)
 	LogVerbose("Finding local package: %s\n", localPkg)
 	s, err := os.Stat(localPkg)
@@ -461,9 +466,9 @@ type CompositeRepoResolver struct {
 // ResolveRepo for the composite attempts its sub Resolvers in order
 // ignoring any errors. If all resolvers fail ErrorResolutionFailure
 // will be returned.
-func (cr *CompositeRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (cr *CompositeRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	for _, r := range cr.Resolvers {
-		vcs, err := r.ResolveRepo(importPath, url)
+		vcs, err := r.ResolveRepo(importPath, dep)
 		if vcs != nil && err == nil {
 			return vcs, nil
 		}
@@ -494,13 +499,13 @@ func NewMemoizedRepoResolver(resolver RepoResolver) *MemoizedRepoResolver {
 
 // ResolveRepo on a MemoizedRepoResolver will cache the results of its
 // child resolver.
-func (mr *MemoizedRepoResolver) ResolveRepo(importPath, url string) (VCS, error) {
+func (mr *MemoizedRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	r := mr.resolvedPaths[importPath]
 	if r != nil {
 		return r.v, r.err
 	}
 
-	v, err := mr.resolver.ResolveRepo(importPath, url)
+	v, err := mr.resolver.ResolveRepo(importPath, dep)
 	mr.resolvedPaths[importPath] = &resolve{v, err}
 	return v, err
 }

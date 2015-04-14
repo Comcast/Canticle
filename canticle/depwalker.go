@@ -150,7 +150,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 }
 
 func (dl *DependencyLoader) setRevision(pkg string, dep *Dependency) error {
-	vcs, err := dl.resolver.ResolveRepo(pkg, dep.Root)
+	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
 	if err != nil {
 		LogVerbose("Failed to resolve package %s", pkg)
 		return err
@@ -163,7 +163,7 @@ func (dl *DependencyLoader) setRevision(pkg string, dep *Dependency) error {
 }
 
 func (dl *DependencyLoader) fetchPackage(pkg string, dep *Dependency) error {
-	vcs, err := dl.resolver.ResolveRepo(pkg, dep.Root)
+	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
 	if err != nil {
 		LogVerbose("Failed to resolve package %s", pkg)
 		return err
@@ -229,7 +229,7 @@ func (ds *DependencySaver) SavePackageRevision(pkg string) error {
 	}
 
 	// Otherwise resolve it and save it
-	vcs, err := ds.resolver.ResolveRepo(pkg, "")
+	vcs, err := ds.resolver.ResolveRepo(pkg, nil)
 	if err != nil {
 		return err
 	}

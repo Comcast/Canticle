@@ -16,7 +16,7 @@ func TestDefaultRepoResolver(t *testing.T) {
 	dr := &DefaultRepoResolver{os.ExpandEnv("$GOPATH")}
 	// Try a VCS resolution against someone supports go get syntax
 	importPath := "golang.org/x/tools/go/vcs"
-	vcs, err := dr.ResolveRepo(importPath, "")
+	vcs, err := dr.ResolveRepo(importPath, nil)
 	if err != nil {
 		t.Errorf("DefaultRepoResolver returned error for golang.org repo: %s", err.Error())
 	}
@@ -37,14 +37,18 @@ func TestRemoteRepoResolver(t *testing.T) {
 	rr := &RemoteRepoResolver{os.ExpandEnv("$GOPATH")}
 
 	// NOTE: UPDATE ME IF WE EVER MOVE THIS
-	importPath := "github.comcast.com/viper-cog/cant"
-	url := "git@github.comcast.com:viper-cog/cant.git"
-	vcs, err := rr.ResolveRepo(importPath, url)
+	dep := &Dependency{
+		ImportPaths: []string{"github.comcast.com/viper-cog/cant/canticle"},
+		SourcePath:  "git@github.comcast.com:viper-cog/cant.git",
+		Root:        "github.comcast.com/viper-cog/cant",
+	}
+
+	vcs, err := rr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err != nil {
 		t.Errorf("RemoteRepoResolver returned error for our own repo: %s", err.Error())
 	}
 	if vcs == nil {
-		t.Fatalf("RemoteRepoResolverResolveRepo returned nil vcs for repo: %s %s", importPath, url)
+		t.Fatalf("RemoteRepoResolverResolveRepo returned nil vcs for repo: %+v", dep)
 	}
 	v := vcs.(*PackageVCS)
 	expectedRoot := "github.comcast.com/viper-cog/cant"
@@ -57,14 +61,16 @@ func TestRemoteRepoResolver(t *testing.T) {
 	}
 
 	// Try a VCS resolution that just flat fails
-	importPath = "nothere.comcast.com/viper-cog/cant"
-	url = "git@nothere.comcast.com:viper-cog/cant.git"
-	vcs, err = rr.ResolveRepo(importPath, url)
+	dep = &Dependency{
+		ImportPaths: []string{"nothere.comcast.com/viper-cog/cant"},
+		SourcePath:  "git@nothere.comcast.com:viper-cog/cant.git",
+	}
+	vcs, err = rr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err == nil {
 		t.Errorf("RemoteRepoResolver returned no error for a package that does not exist")
 	}
 	if vcs != nil {
-		t.Errorf("RemoteRepoResolver returned non nil vcs for repo: %s %s", importPath, url)
+		t.Errorf("RemoteRepoResolver returned non nil vcs for repo: %+v", dep)
 	}
 }
 
@@ -75,7 +81,7 @@ func TestLocalRepoResolver(t *testing.T) {
 	}
 
 	pkg := "github.comcast.com/viper-cog/cant"
-	vcs, err := lr.ResolveRepo(pkg, "")
+	vcs, err := lr.ResolveRepo(pkg, nil)
 	if err != nil {
 		t.Errorf("LocalRepoResolver returned error resolving our own package %s", err.Error())
 	}
@@ -90,7 +96,7 @@ func TestLocalRepoResolver(t *testing.T) {
 
 	// Test dealing with a package whose vcs root != the importpath
 	pkg = "golang.org/x/tools/go/vcs"
-	vcs, err = lr.ResolveRepo(pkg, "")
+	vcs, err = lr.ResolveRepo(pkg, nil)
 	if err != nil {
 		t.Errorf("LocalRepoResolver returned error resolving our own package %s", err.Error())
 	}
@@ -140,7 +146,7 @@ func (v *TestVCS) GetRoot() string {
 
 type testResolve struct {
 	path string
-	url  string
+	dep  *Dependency
 }
 
 type testResolver struct {
@@ -148,8 +154,8 @@ type testResolver struct {
 	response    []resolve
 }
 
-func (tr *testResolver) ResolveRepo(i, u string) (VCS, error) {
-	tr.resolutions = append(tr.resolutions, testResolve{i, u})
+func (tr *testResolver) ResolveRepo(i string, d *Dependency) (VCS, error) {
+	tr.resolutions = append(tr.resolutions, testResolve{i, d})
 	resp := tr.response[0]
 	tr.response = tr.response[1:]
 	return resp.v, resp.err
@@ -162,32 +168,33 @@ func TestCompositeRepoResolver(t *testing.T) {
 
 	cr := &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
 
-	importpath := "testi"
-	url := "testu"
-	v, err := cr.ResolveRepo(importpath, url)
+	dep := &Dependency{
+		ImportPaths: []string{"testi"},
+	}
+	v, err := cr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err != nil {
 		t.Errorf("CompositeRepoResolver returned error with valid resolve %s", err.Error())
 	}
 	if v != res {
 		t.Errorf("CompositeRepoResolver returned incorrect vcs")
 	}
-	if tr1.resolutions[0].path != importpath {
+	if tr1.resolutions[0].path != dep.ImportPaths[0] {
 		t.Errorf("CompositeRepoResolver tr1 bad import path")
 	}
-	if tr1.resolutions[0].url != url {
-		t.Errorf("CompositeRepoResolver tr1 bad url")
+	if tr1.resolutions[0].dep != dep {
+		t.Errorf("CompositeRepoResolver tr1 bad dep")
 	}
-	if tr2.resolutions[0].path != importpath {
+	if tr2.resolutions[0].path != dep.ImportPaths[0] {
 		t.Errorf("CompositeRepoResolver tr2 bad import path")
 	}
-	if tr2.resolutions[0].url != url {
-		t.Errorf("CompositeRepoResolver tr2 bad url")
+	if tr2.resolutions[0].dep != dep {
+		t.Errorf("CompositeRepoResolver tr2 bad dep")
 	}
 
 	tr1 = &testResolver{response: []resolve{{nil, errTest}}}
 	tr2 = &testResolver{response: []resolve{{nil, errTest}}}
 	cr = &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
-	v, err = cr.ResolveRepo(importpath, url)
+	v, err = cr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err != ErrorResolutionFailure {
 		t.Errorf("CompositeRepoResolver did not return resolution failure")
 	}
@@ -197,9 +204,10 @@ func TestMemoizedRepoResolver(t *testing.T) {
 	res := &TestVCS{}
 	tr1 := &testResolver{response: []resolve{{res, nil}}}
 	mr := NewMemoizedRepoResolver(tr1)
-	importpath := "testi"
-	url := "testu"
-	v, err := mr.ResolveRepo(importpath, url)
+	dep := &Dependency{
+		ImportPaths: []string{"testi"},
+	}
+	v, err := mr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err != nil {
 		t.Errorf("MemoizedRepoResolver returned error %s", err.Error())
 	}
@@ -210,7 +218,7 @@ func TestMemoizedRepoResolver(t *testing.T) {
 		t.Errorf("MemoizedRepoResolver did not call tr1 only once")
 	}
 
-	v, err = mr.ResolveRepo(importpath, url)
+	v, err = mr.ResolveRepo(dep.ImportPaths[0], dep)
 	if err != nil {
 		t.Errorf("MemoizedRepoResolver returned error %s", err.Error())
 	}
