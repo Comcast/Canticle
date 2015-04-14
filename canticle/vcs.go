@@ -28,7 +28,7 @@ func GitAtVCS() *vcs.Cmd {
 	v := &vcs.Cmd{}
 	*v = *vcs.ByCmd("git")
 	v.Name = "Git@"
-	v.CreateCmd = "clone git@{repo} {dir}"
+	v.CreateCmd = "clone {repo} {dir}"
 	v.PingCmd = "ls-remote {scheme}@{repo}"
 	v.Scheme = []string{"git"}
 	v.PingCmd = "ls-remote {scheme}@{repo}"
