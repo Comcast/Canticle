@@ -363,9 +363,6 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 func (dr *DefaultRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
 	// We guess our vcs based off our url path if present
 	resolvePath := importPath
-	if dep != nil && dep.SourcePath != "" {
-		resolvePath = dep.SourcePath
-	}
 
 	LogVerbose("Attempting to use go get vcs for url: %s", resolvePath)
 	vcs.Verbose = Verbose
