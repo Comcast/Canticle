@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"text/template"
 
@@ -19,8 +21,19 @@ import (
 // Call build/test/whatever
 // Copy the result back out
 func main() {
+	versionFlag := flag.Bool("version", false, "version prints the version info of canticle")
 	flag.Usage = usage
 	flag.Parse()
+	log.SetFlags(0)
+
+	if *versionFlag {
+		b, err := json.MarshalIndent(BuildInfo, "", "    ")
+		if err != nil {
+			log.Fatalf("Error marshaling own buildinfo!: %s", err.Error())
+		}
+		log.Printf("BuildInfo: \n%s\n", string(b))
+		return
+	}
 
 	args := flag.Args()
 	if len(args) < 1 {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 )
 
 // Build
@@ -14,14 +15,16 @@ type Build struct {
 	InSource     bool
 	Verbose      bool
 	PreferLocals bool
+	GenBuildInfo bool
 }
 
 func NewBuild() *Build {
 	f := flag.NewFlagSet("build", flag.ExitOnError)
-	b := &Build{flags: f}
+	b := &Build{flags: f, GenBuildInfo: true, Gopath: EnvGoPath()}
 	f.BoolVar(&b.InSource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
 	f.BoolVar(&b.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&b.PreferLocals, "l", false, "Prefer local copies from the $GOPATH when getting stuff")
+	f.BoolVar(&b.GenBuildInfo, "-gen-buildinfo", true, "Generate buildinfo.go for the package")
 	return b
 }
 
@@ -30,7 +33,7 @@ var b = NewBuild()
 // BuildCommand
 var BuildCommand = &Command{
 	Name:             "build",
-	UsageLine:        `build [-insource] [-v] [-l] [package...]`,
+	UsageLine:        `build [-insource] [-v] [-l] [-gen-buildinfo] [package...]`,
 	ShortDescription: `download dependencies as defined in the packages Canticle file and build the project`,
 	LongDescription: `The build command first gets the packages (see cant get help). The build command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages.
 
@@ -50,7 +53,6 @@ func (b *Build) Run(args []string) {
 		Verbose = true
 	}
 	defer func() { Verbose = false }()
-	b.Gopath = EnvGoPath()
 	pkgs := ParseCmdLinePackages(b.flags.Args())
 	LogVerbose("Build packages: %+v", pkgs)
 	for _, pkg := range pkgs {
@@ -69,6 +71,12 @@ func (b *Build) BuildPackage(pkg string) error {
 	g.PreferLocals = b.PreferLocals
 	g.GetPackage(pkg)
 
+	if b.GenBuildInfo {
+		if err := b.WriteVersion(pkg); err != nil {
+			return err
+		}
+	}
+
 	// And build it
 	br := BuildRoot(b.Gopath, pkg)
 	cmd := exec.Command("go", "build", pkg)
@@ -84,4 +92,31 @@ func (b *Build) BuildPackage(pkg string) error {
 
 	LogVerbose("Built package %s", pkg)
 	return nil
+}
+
+func (b *Build) WriteVersion(pkg string) error {
+	LogVerbose("Writing version info for package %s", pkg)
+	gopath := b.Gopath
+	if !b.InSource {
+		gopath = BuildRoot(b.Gopath, pkg)
+	}
+	packageInfo, err := LoadPackage(pkg, gopath)
+	if err != nil {
+		return err
+	}
+	// Don't generate buildinfo.go for main packages
+	if packageInfo.Name != "main" {
+		return nil
+	}
+
+	bi, err := NewBuildInfo(gopath, pkg)
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(path.Join(PackageSource(gopath, pkg), "generatedbuildinfo.go"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return bi.WriteGoFile(f)
 }

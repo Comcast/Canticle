@@ -340,7 +340,7 @@ func TestLocalVCS(t *testing.T) {
 	}
 	s, err := os.Stat(PackageSource(testDest, childpkg))
 	if err != nil {
-		t.Errorf("Create with no revision err stating created dir: %s", err.Error())
+		t.Fatalf("Create with no revision err stating created dir: %s", err.Error())
 	}
 	if !s.IsDir() {
 		t.Errorf("Created package was a file not a dir")

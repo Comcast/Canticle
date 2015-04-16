@@ -23,6 +23,7 @@ func (dc *DirCopier) Copy() error {
 }
 
 func (dc *DirCopier) cp(path string, f os.FileInfo, err error) error {
+	// Don't copy "hidden files" if we are not told to
 	if !dc.CopyDot && strings.HasPrefix(filepath.Base(path), ".") {
 		if f.IsDir() {
 			return filepath.SkipDir
@@ -31,6 +32,11 @@ func (dc *DirCopier) cp(path string, f os.FileInfo, err error) error {
 	}
 	if err != nil {
 		return err
+	}
+	// If our file isn't a directory or a normal file ignore it
+	// (don't get unix domain sockets etc.)
+	if !f.Mode().IsDir() && !f.Mode().IsRegular() {
+		return nil
 	}
 	rel, err := filepath.Rel(dc.source, path)
 	if err != nil {
@@ -150,8 +156,9 @@ func CopyToBuildRoot(gopath, buildPkg, pkg string) {
 	}
 	src := path.Join(gopath, "src", pkg)
 	dc := NewDirCopier(src, dest)
+	dc.CopyDot = true
 	if err := dc.Copy(); err != nil {
-		log.Fatalf("Error copying package %s to buildroot from %s", src, dest)
+		log.Fatalf("Error %s copying package %s to buildroot from %s", err.Error(), src, dest)
 	}
 }
 
