@@ -69,7 +69,9 @@ func (b *Build) BuildPackage(pkg string) error {
 	g.Verbose = b.Verbose
 	g.InSource = b.InSource
 	g.PreferLocals = b.PreferLocals
-	g.GetPackage(pkg)
+	if err := g.GetPackage(pkg); err != nil {
+		return err
+	}
 
 	if b.GenBuildInfo {
 		if err := b.WriteVersion(pkg); err != nil {
