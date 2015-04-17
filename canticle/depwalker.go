@@ -130,11 +130,15 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	dep := dl.deps.DepForImportPath(pkg)
 	if dep == nil {
 		dep = &Dependency{ImportPaths: []string{pkg}}
+		LogVerbose("Creating Dep: %+v", dep)
 	}
 	if fetch {
-		dl.fetchPackage(pkg, dep)
+		err = dl.fetchPackage(pkg, dep)
 	} else {
-		dl.setRevision(pkg, dep)
+		err = dl.setRevision(pkg, dep)
+	}
+	if err != nil {
+		return err
 	}
 
 	// Load the canticle deps file of our package and save it, not
@@ -146,10 +150,12 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	case err != nil && os.IsNotExist(err):
 		return nil
 	}
+	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
 	return dl.deps.AddDependencies(deps)
 }
 
 func (dl *DependencyLoader) setRevision(pkg string, dep *Dependency) error {
+	LogVerbose("Setting rev on dep %+v", dep)
 	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
 	if err != nil {
 		LogVerbose("Failed to resolve package %s", pkg)
@@ -163,6 +169,7 @@ func (dl *DependencyLoader) setRevision(pkg string, dep *Dependency) error {
 }
 
 func (dl *DependencyLoader) fetchPackage(pkg string, dep *Dependency) error {
+	LogVerbose("Fetching dep %+v", dep)
 	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
 	if err != nil {
 		LogVerbose("Failed to resolve package %s", pkg)
