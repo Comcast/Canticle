@@ -29,10 +29,11 @@ func TestBuild(t *testing.T) {
 
 	}
 	b.PreferLocals = false
-
+	b.InSource = true
 	if err := b.WriteVersion("github.comcast.com/viper-cog/cant/canticle"); err != nil {
 		t.Errorf("Error generating version info for non main package: %s", err.Error())
 	}
+	b.InSource = true
 
 	p := path.Join(BuildSource(EnvGoPath(), "github.comcast.com/viper-cog/cant/canticle"), "generatedbuildinfo.go")
 	if _, err := os.Stat(p); err == nil {

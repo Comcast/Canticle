@@ -104,7 +104,7 @@ func filterStrings(strings []string, f func(string) bool) []string {
 func LoadPackage(pkgPath, gohome string) (*Package, error) {
 	cmd := exec.Command("go", "list", "--json", pkgPath)
 	LogVerbose("Running command go list --json %s", pkgPath)
-	cmd.Env = PatchEnviroment(os.Environ(), "GOHOME", gohome)
+	cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", gohome)
 	result, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.New(string(result))
