@@ -18,7 +18,7 @@ type Get struct {
 func NewGet() *Get {
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	g := &Get{flags: f}
-	f.BoolVar(&g.InSource, "insource", false, "Get the packages to the enviroment gopath rather than the build dir")
+	f.BoolVar(&g.InSource, "insource", true, "Get the packages to the enviroment gopath rather than the build dir")
 	f.BoolVar(&g.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&g.Nodeps, "n", false, "Only fetch the target package, do not resolve deps")
 	f.BoolVar(&g.PreferLocals, "l", false, "Prefer local copies from the $GOPATH when getting stuff")
