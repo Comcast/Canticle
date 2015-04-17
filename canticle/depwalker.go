@@ -67,10 +67,10 @@ func (dw *DependencyWalker) TraverseDependencies(pkg string) error {
 		if err != nil {
 			return err
 		}
-
 		sort.Strings(children)
+		LogVerbose("Package %s has children %v", p, children)
+
 		for _, child := range children {
-			LogVerbose("Package %+v has dep %+v", p, child)
 			// If we already traversed this node don't re-queue it
 			if dw.loadedPackages[child] {
 				continue
@@ -117,7 +117,6 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	s, err := os.Stat(PackageSource(dl.gopath, pkg))
 	switch {
 	case err != nil && os.IsNotExist(err):
-		LogVerbose("Fetching package %s", pkg)
 		fetch = true
 	case err != nil:
 		LogVerbose("Error stating import path %s", err.Error())

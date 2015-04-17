@@ -20,6 +20,7 @@ func (dr *DepReader) ReadCanticleDependencies(pkg string) (Dependencies, error) 
 	if err != nil {
 		return deps, err
 	}
+	LogVerbose("Reading canticle file: %s", f.Name())
 	defer f.Close()
 
 	d := json.NewDecoder(f)
