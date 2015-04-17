@@ -64,6 +64,14 @@ func (b *Build) Run(args []string) {
 
 func (b *Build) BuildPackage(pkg string) error {
 	LogVerbose("Building package %s", pkg)
+
+	// Clean out our buildroot
+	bs := BuildSource(b.Gopath, pkg)
+	LogVerbose("Cleaning build dir: %s", bs)
+	if err := os.RemoveAll(bs); err != nil {
+		return err
+	}
+
 	// Setup our getter and grab our deps deps
 	g := NewGet()
 	g.Verbose = b.Verbose
