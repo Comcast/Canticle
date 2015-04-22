@@ -3,6 +3,7 @@ package canticle
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -113,9 +114,15 @@ func (d Dependencies) String() string {
 // MarshalJSON will encode this as a JSON array.
 func (d Dependencies) MarshalJSON() ([]byte, error) {
 	deps := make([]*Dependency, 0, len(d))
-	for _, dep := range d {
-		deps = append(deps, dep)
+	keys := make([]string, 0, len(d))
+	for k := range d {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		deps = append(deps, d[k])
+	}
+
 	return json.Marshal(deps)
 }
 
