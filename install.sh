@@ -3,7 +3,9 @@ vcstools="golang.org/x/tools/go/vcs"
 go get $vcstools
 mkdir -p $cantdir
 git clone git@github.comcast.com:viper-cog/cant.git $cantdir
-cd $cantdir
+pushd $cantdir
 go build
 ./cant build -l
-cp cant "$GOPATH/bin"
+mkdir -p "$GOPATH/bin/"
+cp cant "$GOPATH/bin/"
+popd
