@@ -4,5 +4,5 @@ Canticle is a dependency manager for go. It does revision locking, vanity naming
 ## Installation
 Make sure your `$GOPATH` is set and run this command:
 
-	curl -s https://github.comcast.com/viper-cog/cant/blob/master/install.sh | sh
+	curl -sL https://github.comcast.com/viper-cog/cant/raw/master/install.sh | sh
 
