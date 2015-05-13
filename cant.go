@@ -8,7 +8,7 @@ import (
 	"os"
 	"text/template"
 
-	"github.comcast.com/viper-cog/cant/canticle"
+	"github.comcast.com/viper-cog/cant/canticles"
 )
 
 // Canticle will:
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	cmdName := args[0]
-	cmd, ok := canticle.Commands[cmdName]
+	cmd, ok := canticles.Commands[cmdName]
 	if !ok {
 		fmt.Fprintln(os.Stderr, "Unkown subcommand ", cmdName)
 		usage()
@@ -66,6 +66,6 @@ Use "cant help [command]" for more information about that command.
 
 func usage() {
 	tmpl, _ := template.New("UsageTemplate").Parse(UsageTemplate)
-	tmpl.Execute(os.Stderr, canticle.Commands)
+	tmpl.Execute(os.Stderr, canticles.Commands)
 	os.Exit(2)
 }

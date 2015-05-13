@@ -1,4 +1,4 @@
-package canticle
+package canticles
 
 import (
 	"fmt"
