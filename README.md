@@ -1,6 +1,16 @@
 # Canticle
 Canticle is a dependency manager for go. It does revision locking, vanity naming, and vendoring.
 
+## Use Case
+
+Let's say you just cloned a project, and it has a lot of 3rd party dependencies.  So, instead of doing a `go get` on each of the projects, simply do:
+
+```
+$ cant get    # download all dependencies
+$ cant build  # build all dependencies
+$ go build    # compile your project
+```
+
 ## Installing Canticle
 
 Prerequisite: It is assumed that your GO environment is already configured properly (ie. set GOPATH).
@@ -13,7 +23,7 @@ https://github.comcast.com/viper-cog/cant/raw/master/install.sh
 https://github.comcast.com/raw/viper-cog/cant/master/install.sh?token=xxxxxxxxxxxxxxxxxx
 
 # Step 3: Execute the script on your development machine
-curl 'https://github.comcast.com/raw/viper-cog/cant/master/install.sh?token=xxxxxxxxxxxxxxxxxx' | sh
+$ curl 'https://github.comcast.com/raw/viper-cog/cant/master/install.sh?token=xxxxxxxxxxxxxxxxxx' | sh
 ```
 
 ## Using Canticle
@@ -22,7 +32,9 @@ curl 'https://github.comcast.com/raw/viper-cog/cant/master/install.sh?token=xxxx
 
 On an existing project with 3rd party dependencies, simply execute the following:
 
-```cant save```
+```
+$cant save
+```
 
 Running above step would perform the following:
 
@@ -54,6 +66,6 @@ Tip: To adjust the specific revision of the codebase you want to depend on, simp
 For newly checked out codebase and in order to download the dependencies, simply execute:
 
 ```
-   cant get     # download all dependencies at their specific revision
-   cant build   # build all dependencies
+$ cant get     # download all dependencies at their specific revision
+$ cant build   # build all dependencies
 ```
