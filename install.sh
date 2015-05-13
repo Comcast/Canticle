@@ -1,3 +1,5 @@
+#!/bin/sh
+
 cantdir="$GOPATH/src/github.comcast.com/viper-cog/cant"
 vcstools="golang.org/x/tools/go/vcs"
 go get $vcstools
