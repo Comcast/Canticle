@@ -131,10 +131,19 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 		dep = &Dependency{ImportPaths: []string{pkg}}
 		LogVerbose("Creating Dep: %+v", dep)
 	}
+
+	// Resolve the vcs
+	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
+	if err != nil {
+		LogVerbose("Failed to resolve package %s", pkg)
+		return err
+	}
+
+	// Fetch or set
 	if fetch {
-		err = dl.fetchPackage(pkg, dep)
+		err = dl.fetchPackage(vcs, dep)
 	} else {
-		err = dl.setRevision(pkg, dep)
+		err = dl.setRevision(vcs, dep)
 	}
 	if err != nil {
 		return err
@@ -142,7 +151,11 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 
 	// Load the canticle deps file of our package and save it, not
 	// having the file is not an error.
-	deps, err := dl.read(pkg)
+	readFrom := vcs.GetRoot()
+	if readFrom == "" {
+		readFrom = pkg
+	}
+	deps, err := dl.read(readFrom)
 	switch {
 	case err != nil && !os.IsNotExist(err):
 		return err
@@ -153,29 +166,19 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	return dl.deps.AddDependencies(deps)
 }
 
-func (dl *DependencyLoader) setRevision(pkg string, dep *Dependency) error {
+func (dl *DependencyLoader) setRevision(vcs VCS, dep *Dependency) error {
 	LogVerbose("Setting rev on dep %+v", dep)
-	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
-	if err != nil {
-		LogVerbose("Failed to resolve package %s", pkg)
-		return err
-	}
-	if err = vcs.SetRev(dep.Revision); err != nil {
-		LogVerbose("Failed to create package %s", pkg)
+	if err := vcs.SetRev(dep.Revision); err != nil {
+		LogVerbose("Failed to set revision on package %s", vcs.GetRoot())
 		return err
 	}
 	return nil
 }
 
-func (dl *DependencyLoader) fetchPackage(pkg string, dep *Dependency) error {
+func (dl *DependencyLoader) fetchPackage(vcs VCS, dep *Dependency) error {
 	LogVerbose("Fetching dep %+v", dep)
-	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
-	if err != nil {
-		LogVerbose("Failed to resolve package %s", pkg)
-		return err
-	}
-	if err = vcs.Create(dep.Revision); err != nil {
-		LogVerbose("Failed to create package %s", pkg)
+	if err := vcs.Create(dep.Revision); err != nil {
+		LogVerbose("Failed to create package %s", vcs.GetRoot())
 		return err
 	}
 	return nil

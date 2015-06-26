@@ -88,7 +88,7 @@ func (g *Get) GetPackage(pkg string) error {
 	}
 	resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
 	depReader := &DepReader{targetPath}
-	dl := NewDependencyLoader(resolver, depReader.ReadCanticleDependencies, targetPath)
+	dl := NewDependencyLoader(resolver, depReader.ReadAllCantDeps, targetPath)
 	dw := NewDependencyWalker(depReader.ReadRemoteDependencies, dl.FetchUpdatePackage)
 
 	// And walk it
