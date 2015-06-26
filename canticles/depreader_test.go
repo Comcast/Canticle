@@ -1,6 +1,7 @@
 package canticles
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,6 +43,90 @@ func TestReadCanticleDependencies(t *testing.T) {
 	}
 	if len(deps) != 0 {
 		t.Errorf("ReadCanticleDependencies returned non zero length deps loading invalid path")
+	}
+}
+
+func TestReadAllCantDeps(t *testing.T) {
+	dir, err := ioutil.TempDir("", "cant-test")
+	if err != nil {
+		t.Fatalf("Could not create tmp directory with err %s", err.Error())
+	}
+	defer os.Remove(dir)
+
+	// Create our file hierarchy
+	paths := []string{"cubicle", "sosicle", ".fascicle"}
+	for _, s := range paths {
+		p := path.Join(dir, "src", "canttest", s)
+		if err := os.MkdirAll(p, 0755); err != nil {
+			t.Fatalf("Could not create tmp directory with err %s", err.Error())
+		}
+	}
+
+	// Add Canticle files
+	tragical := &Dependency{
+		ImportPaths: []string{"tragical"},
+		Root:        "tragic.com/tragical",
+		Revision:    "Oedipus",
+	}
+	cubicle := &Dependency{
+		ImportPaths: []string{"cubicle"},
+		Root:        "hell.com/cubicle",
+		Revision:    "hell",
+	}
+	fascicle := &Dependency{
+		Root:     "elsewhere.com/fascicle",
+		Revision: "a seperately published work",
+	}
+	f, err := os.Create(path.Join(dir, "src", "canttest", "Canticle"))
+	if err != nil {
+		t.Fatalf("Error creating files for test %s", err.Error())
+	}
+	defer f.Close()
+	deps := NewDependencies()
+	deps.AddDependency(tragical)
+	err = json.NewEncoder(f).Encode(deps)
+	if err != nil {
+		t.Fatalf("Error writing files for test %s", err.Error())
+	}
+
+	f1, err := os.Create(path.Join(dir, "src", "canttest", "cubicle", "Canticle"))
+	if err != nil {
+		t.Fatalf("Error creating files for test %s", err.Error())
+	}
+	defer f1.Close()
+	deps = NewDependencies()
+	deps.AddDependency(cubicle)
+	err = json.NewEncoder(f1).Encode(deps)
+	if err != nil {
+		t.Fatalf("Error writing files for test %s", err.Error())
+	}
+
+	f2, err := os.Create(path.Join(dir, "src", "canttest", ".fascicle", "Canticle"))
+	if err != nil {
+		t.Fatalf("Error creating files for test %s", err.Error())
+	}
+	defer f2.Close()
+	deps = NewDependencies()
+	deps.AddDependency(fascicle)
+	err = json.NewEncoder(f2).Encode(deps)
+	if err != nil {
+		t.Fatalf("Error writing files for test %s", err.Error())
+	}
+
+	// Setup all complete, lets read all our Canticle deps
+	dr := &DepReader{dir}
+
+	// Happy path
+	result, err := dr.ReadAllCantDeps("canttest")
+	if err != nil {
+		t.Errorf("Error reading valid Canticle files %s error: %s", "canttest", err.Error())
+	}
+	if result == nil {
+		t.Errorf("ReadAllCantDeps should never return nil deps")
+		return
+	}
+	if len(result) != 2 {
+		t.Errorf("ReadAllCantDeps returned unexpected number of deps %d", len(result))
 	}
 }
 
