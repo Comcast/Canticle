@@ -197,6 +197,8 @@ type DependencySaver struct {
 	deps     Dependencies
 	gopath   string
 	resolver RepoResolver
+	read     CantDepReader
+	pkg      string
 }
 
 // NewDependencySaver builds a new dependencysaver to work in the
@@ -205,11 +207,13 @@ type DependencySaver struct {
 // DependencySaver will not attempt to load remote dependencies even
 // if the resolverfunc can handle them. Deps that resolve using ignore
 // will not be saved.
-func NewDependencySaver(resolver RepoResolver, gopath string) *DependencySaver {
+func NewDependencySaver(resolver RepoResolver, reader CantDepReader, gopath, pkg string) *DependencySaver {
 	return &DependencySaver{
 		deps:     NewDependencies(),
 		resolver: resolver,
+		read:     reader,
 		gopath:   gopath,
+		pkg:      pkg,
 	}
 }
 
@@ -230,14 +234,7 @@ func (ds *DependencySaver) SavePackageRevision(pkg string) error {
 		return err
 	}
 
-	// If we have already traversed a dep with a root for this
-	// package just add the import path to it.
-	if dep := ds.deps.DepForImportPath(pkg); dep != nil {
-		dep.AddImportPaths(pkg)
-		return nil
-	}
-
-	// Otherwise resolve it and save it
+	// Resolve the repo
 	vcs, err := ds.resolver.ResolveRepo(pkg, nil)
 	if err != nil {
 		return err
@@ -253,7 +250,29 @@ func (ds *DependencySaver) SavePackageRevision(pkg string) error {
 	if err != nil {
 		return err
 	}
-	return ds.deps.AddDependency(dep)
+
+	root := dep.Root
+	if root == "" {
+		root = pkg
+	}
+	// Next load this pkg's deps and add them to our tree
+	pkgDeps, err := ds.read(dep.Root)
+	if err != nil {
+		return err
+	}
+	// Don't attempt to save the package which we are working against
+	if PathIsChild(root, ds.pkg) {
+		return nil
+	}
+	if err := ds.deps.AddDependencies(pkgDeps); err != nil {
+		return fmt.Errorf("pkg %s causes conflict adding deps %s", pkg, err.Error())
+	}
+
+	// And finally add our self
+	if err := ds.deps.AddDependency(dep); err != nil {
+		return fmt.Errorf("pkg %s causes conflict %s, on disk version is at rev %s", pkg, err.Error(), dep.Revision)
+	}
+	return nil
 }
 
 // Dependencies returns the resolved dependencies from dependency

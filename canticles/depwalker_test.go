@@ -245,8 +245,21 @@ func TestDependencySaver(t *testing.T) {
 		Root:   "blah.com/root",
 		Source: "git@blah.com:root.git",
 	}
+	v3 := &TestVCS{
+		Rev:    "r1",
+		Root:   "blah.com/conflict",
+		Source: "git@blah.com:conflict.git",
+	}
+	v4 := &TestVCS{
+		Rev:    "r1",
+		Root:   "blah.com/test",
+		Source: "git@blah.com:test.git",
+	}
+
+	pkg := "blah.com/test"
 	childpkg := "blah.com/root/child"
 	rootpkg := "blah.com/root"
+	conflictpkg := "blah.com/conflict"
 	resolver := &TestResolver{
 		ResolvePaths: map[string]*TestVCSResolve{
 			childpkg: &TestVCSResolve{
@@ -255,15 +268,44 @@ func TestDependencySaver(t *testing.T) {
 			rootpkg: &TestVCSResolve{
 				V: v2,
 			},
+			conflictpkg: &TestVCSResolve{
+				V: v3,
+			},
+			pkg: &TestVCSResolve{
+				V: v4,
+			},
 		},
 	}
 
-	ds := NewDependencySaver(resolver, testHome)
+	conflictDeps := NewDependencies()
+	conflictDeps.AddDependency(&Dependency{
+		ImportPaths: []string{rootpkg},
+		Root:        rootpkg,
+		SourcePath:  "git@blah.com:root.git",
+		Revision:    "r2",
+	})
+	reader := &TestCantReader{
+		PackageDeps: map[string]TestCantRead{
+			rootpkg:     {NewDependencies(), nil},
+			childpkg:    {NewDependencies(), nil},
+			pkg:         {NewDependencies(), nil},
+			conflictpkg: {conflictDeps, nil},
+		},
+	}
+
+	ds := NewDependencySaver(resolver, reader.Read, testHome, pkg)
+	name := PackageSource(testHome, pkg)
+	fmt.Printf("Making dir %s\n", name)
+	os.MkdirAll(name, 0755)
+	if err := ds.SavePackageRevision(pkg); err != nil {
+		t.Errorf("Error saving our own package %s", err.Error())
+	}
+
 	if err := ds.SavePackageRevision(childpkg); err == nil {
 		t.Errorf("Did not report err loading package with no file")
 	}
 
-	name := PackageSource(testHome, childpkg)
+	name = PackageSource(testHome, childpkg)
 	fmt.Printf("Making dir %s\n", name)
 	os.MkdirAll(name, 0755)
 
@@ -299,5 +341,12 @@ func TestDependencySaver(t *testing.T) {
 
 	if err := ds.SavePackageRevision("testpkg"); err == nil {
 		t.Errorf("Did not report err when passed err")
+	}
+
+	name = PackageSource(testHome, conflictpkg)
+	fmt.Printf("Making dir %s\n", name)
+	os.MkdirAll(name, 0755)
+	if err := ds.SavePackageRevision(conflictpkg); err == nil {
+		t.Errorf("DepSaver did not report error when dealing with package conflicts")
 	}
 }

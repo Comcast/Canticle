@@ -64,7 +64,7 @@ func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
 	lr := &LocalRepoResolver{LocalPath: gopath}
 	resolver := NewMemoizedRepoResolver(lr)
 	depReader := &DepReader{gopath}
-	ds := NewDependencySaver(resolver, gopath)
+	ds := NewDependencySaver(resolver, depReader.ReadAllCantDeps, gopath, pkg)
 	dw := NewDependencyWalker(depReader.ReadRemoteDependencies, ds.SavePackageRevision)
 
 	// And walk it
@@ -79,8 +79,6 @@ func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
 
 // SaveDeps saves a canticle file into deps containing deps.
 func (s *Save) SaveDeps(pkg string, deps Dependencies) error {
-	// Filter dep from deps
-	deps.RemoveRoot(pkg)
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return err

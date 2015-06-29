@@ -84,9 +84,9 @@ func (d Dependencies) AddDependency(dep *Dependency) error {
 	case already.SourcePath == "" && dep.SourcePath != "":
 		already.SourcePath = dep.SourcePath
 	case dep.Revision != "" && already.Revision != dep.Revision:
-		return fmt.Errorf("Dep %+v has conflicting revisions %s and %s\n", already, already.Revision, dep.Revision)
+		return fmt.Errorf("dep %+v has conflicting revisions %s and %s\n", already, already.Revision, dep.Revision)
 	case dep.SourcePath != "" && already.SourcePath != dep.SourcePath:
-		return fmt.Errorf("Dep %+v has conflicting source %s and %s\n", already, already.SourcePath, dep.SourcePath)
+		return fmt.Errorf("dep %+v has conflicting source %s and %s\n", already, already.SourcePath, dep.SourcePath)
 	}
 
 	return nil
