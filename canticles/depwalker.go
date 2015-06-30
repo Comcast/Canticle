@@ -151,11 +151,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 
 	// Load the canticle deps file of our package and save it, not
 	// having the file is not an error.
-	readFrom := vcs.GetRoot()
-	if readFrom == "" {
-		readFrom = pkg
-	}
-	deps, err := dl.read(readFrom)
+	deps, err := dl.read(pkg)
 	switch {
 	case err != nil && !os.IsNotExist(err):
 		return err
@@ -251,17 +247,13 @@ func (ds *DependencySaver) SavePackageRevision(pkg string) error {
 		return err
 	}
 
-	root := dep.Root
-	if root == "" {
-		root = pkg
-	}
 	// Next load this pkg's deps and add them to our tree
-	pkgDeps, err := ds.read(dep.Root)
+	pkgDeps, err := ds.read(pkg)
 	if err != nil {
 		return err
 	}
 	// Don't attempt to save the package which we are working against
-	if PathIsChild(root, ds.pkg) {
+	if PathIsChild(ds.pkg, pkg) {
 		return nil
 	}
 	if err := ds.deps.AddDependencies(pkgDeps); err != nil {
