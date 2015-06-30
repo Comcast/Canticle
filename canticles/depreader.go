@@ -14,13 +14,13 @@ type DepReader struct {
 	Gopath string
 }
 
-// ReadAllCantDeps begins at a root folder of a vcs repo and traverses
+// ReadAllCantDeps begins at a root folder and traverses
 // all folder and canticle deps listed. It will "swallow" any
 // os.IsNotExist err's as well, possibly returning an empty set of
 // deps.
-func (dr *DepReader) ReadAllCantDeps(vcsRoot string) (Dependencies, error) {
+func (dr *DepReader) ReadAllCantDeps(root string) (Dependencies, error) {
 	allDeps := NewDependencies()
-	err := filepath.Walk(PackageSource(dr.Gopath, vcsRoot), func(p string, f os.FileInfo, err error) error {
+	err := filepath.Walk(PackageSource(dr.Gopath, root), func(p string, f os.FileInfo, err error) error {
 		// Go src dirs don't have dot prefixes
 		if strings.HasPrefix(filepath.Base(p), ".") {
 			if f.IsDir() {
@@ -66,6 +66,50 @@ func (dr *DepReader) ReadCanticleDependencies(pkg string) (Dependencies, error) 
 		return deps, err
 	}
 	return deps, nil
+}
+
+// ReadAllRemoteDependencies starts at a root pkg and traverses
+// downwards reading deps. PackageErrors with e.IsNoBuildable will be
+// ignored.
+func (dr *DepReader) ReadAllRemoteDependencies(root string) ([]string, error) {
+	allDeps := []string{}
+	err := filepath.Walk(PackageSource(dr.Gopath, root), func(p string, f os.FileInfo, err error) error {
+		// Go src dirs don't have dot prefixes
+		if strings.HasPrefix(filepath.Base(p), ".") {
+			if f.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// We only want to process directories, and ignore files
+		if !f.IsDir() {
+			return nil
+		}
+		pname, err := PackageName(dr.Gopath, p)
+		if err != nil {
+			return err
+		}
+		// If this is a dir attempt to read its deps, ignore all errors
+		deps, err := dr.ReadRemoteDependencies(pname)
+		if err != nil {
+			switch e := err.(type) {
+			default:
+				return err
+			case *PackageError:
+				if !e.IsNoBuildable() {
+					return err
+				}
+
+			}
+		}
+		allDeps = MergeStringsAsSet(allDeps, deps...)
+		return nil
+
+	})
+	return allDeps, err
 }
 
 // ReadRemoteDependencies reads the dependencies for package p listed

@@ -65,7 +65,7 @@ func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
 	resolver := NewMemoizedRepoResolver(lr)
 	depReader := &DepReader{gopath}
 	ds := NewDependencySaver(resolver, depReader.ReadAllCantDeps, gopath, pkg)
-	dw := NewDependencyWalker(depReader.ReadRemoteDependencies, ds.SavePackageRevision)
+	dw := NewDependencyWalker(depReader.ReadAllRemoteDependencies, ds.SavePackageRevision)
 
 	// And walk it
 	err := dw.TraverseDependencies(pkg)

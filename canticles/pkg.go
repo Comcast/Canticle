@@ -9,6 +9,22 @@ import (
 	"strings"
 )
 
+type PackageError struct {
+	ImportStack []string // shortest path from package named on command line to this one
+	Pos         string   // position of error
+	Err         string   // the error itself
+}
+
+func (pe PackageError) Error() string {
+	return pe.Err
+}
+
+// IsNoBuildable returns true if this error was caused by a lack of
+// buildable source files.
+func (pe PackageError) IsNoBuildable() bool {
+	return strings.HasPrefix(pe.Err, "no buildable Go")
+}
+
 // A Package describes a go single package found in a directory.  This
 // is from the go source code cmd/go. As it is a main package we can
 // not import it. We use this to interpret the output of `go list
@@ -52,7 +68,9 @@ type Package struct {
 	Deps    []string `json:",omitempty"` // all (recursively) imported dependencies
 
 	// Error information
-	Incomplete bool `json:",omitempty"` // was there an error loading this package or dependencies?
+	Incomplete bool            `json:",omitempty"` // was there an error loading this package or dependencies?
+	Error      *PackageError   `json:",omitempty"` // error loading this package (not dependencies)
+	DepsErrors []*PackageError `json:",omitempty"` // errors loading dependencies
 
 	// Test information
 	TestGoFiles  []string `json:",omitempty"` // _test.go files in package
@@ -102,8 +120,8 @@ func filterStrings(strings []string, f func(string) bool) []string {
 // will be nil if an error occurs. Package itself may also have
 // errors.
 func LoadPackage(pkgPath, gohome string) (*Package, error) {
-	cmd := exec.Command("go", "list", "--json", pkgPath)
-	LogVerbose("Running command go list --json %s", pkgPath)
+	cmd := exec.Command("go", "list", "--json", "-e", pkgPath)
+	LogVerbose("Running command go list --json -e %s", pkgPath)
 	cmd.Env = PatchEnviroment(os.Environ(), "GOPATH", gohome)
 	result, err := cmd.CombinedOutput()
 	if err != nil {
@@ -113,6 +131,10 @@ func LoadPackage(pkgPath, gohome string) (*Package, error) {
 	pkg := &Package{}
 	if err := json.Unmarshal(result, pkg); err != nil {
 		return nil, err
+	}
+
+	if pkg.Error != nil {
+		return nil, pkg.Error
 	}
 
 	return pkg, nil

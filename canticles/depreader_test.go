@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -126,6 +127,69 @@ func TestReadAllCantDeps(t *testing.T) {
 		return
 	}
 	if len(result) != 2 {
+		t.Errorf("ReadAllCantDeps returned unexpected number of deps %d", len(result))
+	}
+}
+
+func setupTestPath(t *testing.T) (string, error) {
+	dir, err := ioutil.TempDir("", "cant-test")
+	if err != nil {
+		t.Fatalf("Could not create tmp directory with err %s", err.Error())
+		return "", err
+	}
+
+	// Create our file hierarchy
+	paths := []string{"test.com/cubicle", "test.com/cubicle/sosicle", "test.com/fascicle"}
+	for _, s := range paths {
+		p := PackageSource(dir, s)
+		if err := os.MkdirAll(p, 0755); err != nil {
+			t.Fatalf("Could not create tmp directory with err %s", err.Error())
+			return "", err
+		}
+		f, err := os.Create(path.Join(p, "test.go"))
+		if err != nil {
+			t.Fatalf("Could not create tmp file with err %s", err.Error())
+			return "", err
+		}
+		defer f.Close()
+
+		s := "package " + filepath.Base(p) + "\nimport _ \"test.com/fascicle\""
+		_, err = f.Write([]byte(s))
+		if err != nil {
+			t.Fatalf("Could not write to tmp file with err %s", err.Error())
+			return "", err
+		}
+	}
+
+	// Sub dir with no buildable go files
+	p := PackageSource(dir, "test.com/cubicle/empty")
+	if err := os.MkdirAll(PackageSource(dir, p), 0755); err != nil {
+		t.Fatalf("Could not create tmp directory with err %s", err.Error())
+		return "", err
+	}
+
+	return dir, nil
+
+}
+
+func TestReadAllRemoteDeps(t *testing.T) {
+	dir, err := setupTestPath(t)
+	if err != nil {
+		return
+	}
+	//defer os.Remove(dir)
+	// Setup all complete, lets read all our Canticle deps
+	dr := &DepReader{dir}
+
+	result, err := dr.ReadAllRemoteDependencies("test.com/cubicle")
+	if err != nil {
+		t.Errorf("Error reading valid pkg files %s error: %s", "test.com/cubicle", err.Error())
+	}
+	if result == nil {
+		t.Errorf("ReadAllRemoteDeps should never return nil deps")
+		return
+	}
+	if len(result) != 1 {
 		t.Errorf("ReadAllCantDeps returned unexpected number of deps %d", len(result))
 	}
 }
