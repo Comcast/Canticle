@@ -317,7 +317,7 @@ func (pv *PackageVCS) SetRev(rev string) error {
 // GetRev does not work on remote VCS's and will always return a not
 // implemented error.
 func (pv *PackageVCS) GetRev() (string, error) {
-	return "", errors.New("Package VCS currently does not support GetRev")
+	return "", errors.New("package VCS currently does not support GetRev")
 }
 
 // GetRoot will return pv.Repo.Root
@@ -332,7 +332,7 @@ func (pv *PackageVCS) GetSource() (string, error) {
 
 // ErrorResolutionFailure will be returned if a RepoResolver could not
 // resolve a VCS.
-var ErrorResolutionFailure = errors.New("Discovery failed")
+var ErrorResolutionFailure = errors.New("discovery failed")
 
 // RepoResolver provides the mechanisms for resolving a VCS from an
 // importpath and sourceUrl.
@@ -353,7 +353,7 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 	rootParts := strings.Split(root, "/")
 
 	if len(pathParts) < len(rootParts) {
-		return "", fmt.Errorf("Path %s does not contain enough prefix for path %s", importPath, root)
+		return "", fmt.Errorf("path %s does not contain enough prefix for path %s", importPath, root)
 	}
 	return path.Join(pathParts[0:len(rootParts)]...), nil
 }

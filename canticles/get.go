@@ -53,7 +53,7 @@ func (g *Get) Run(args []string) {
 
 	pkgArgs := g.flags.Args()
 	if g.InSource && len(pkgArgs) > 1 {
-		log.Fatal("Get may not be run with -insource and multiple packages")
+		log.Fatal("cant get may not be run with -insource and multiple packages")
 	}
 	pkgs := ParseCmdLinePackages(pkgArgs)
 	for _, pkg := range pkgs {
@@ -94,7 +94,7 @@ func (g *Get) GetPackage(pkg string) error {
 	// And walk it
 	err := dw.TraverseDependencies(pkg)
 	if err != nil {
-		return fmt.Errorf("Error fetching packages: %s", err.Error())
+		return fmt.Errorf("cant fetch packages %s", err.Error())
 	}
 	LogVerbose("Package %+v has deps: %+v", pkg, dl.FetchedDeps())
 

@@ -59,7 +59,7 @@ func ParseCmdLinePackages(args []string) []string {
 	if len(args) == 0 {
 		pkg, err := GetCurrentPackage()
 		if err != nil {
-			log.Fatalf("Error getting current package: %s", err.Error())
+			log.Fatalf("cant get current package: %s", err.Error())
 		}
 		return []string{pkg}
 	}

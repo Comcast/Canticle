@@ -70,7 +70,7 @@ func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
 	// And walk it
 	err := dw.TraverseDependencies(pkg)
 	if err != nil {
-		return nil, fmt.Errorf("Error saving packages: %s", err.Error())
+		return nil, fmt.Errorf("cant save package %s", err.Error())
 	}
 	LogVerbose("Package %s has remotes: %+v", pkg, ds.Dependencies())
 

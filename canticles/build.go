@@ -2,6 +2,7 @@ package canticles
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -57,7 +58,7 @@ func (b *Build) Run(args []string) {
 	LogVerbose("Build packages: %+v", pkgs)
 	for _, pkg := range pkgs {
 		if err := b.BuildPackage(pkg); err != nil {
-			log.Fatalf("Error %s building pkg %s", err.Error(), pkg)
+			log.Fatalf("cant build package %s %s", pkg, err.Error())
 		}
 	}
 }
@@ -78,12 +79,12 @@ func (b *Build) BuildPackage(pkg string) error {
 	g.InSource = b.InSource
 	g.PreferLocals = b.PreferLocals
 	if err := g.GetPackage(pkg); err != nil {
-		return err
+		return fmt.Errorf("cant get package %s", err.Error())
 	}
 
 	if b.GenBuildInfo {
 		if err := b.WriteVersion(pkg); err != nil {
-			return err
+			return fmt.Errorf("cant gen build info %s", err.Error())
 		}
 	}
 
@@ -97,7 +98,7 @@ func (b *Build) BuildPackage(pkg string) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		return err
+		return fmt.Errorf("cant build pkg %s", err.Error())
 	}
 
 	LogVerbose("Built package %s", pkg)
@@ -121,11 +122,11 @@ func (b *Build) WriteVersion(pkg string) error {
 
 	bi, err := NewBuildInfo(gopath, pkg)
 	if err != nil {
-		return err
+		return fmt.Errorf("cant get build info for package %s %s", pkg, err.Error())
 	}
 	f, err := os.Create(path.Join(PackageSource(gopath, pkg), "generatedbuildinfo.go"))
 	if err != nil {
-		return err
+		return fmt.Errorf("cant create file generatedbuildinfo.go %s", err.Error())
 	}
 	defer f.Close()
 	return bi.WriteGoFile(f)

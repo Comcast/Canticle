@@ -18,7 +18,7 @@ type PkgReaderFunc func(pkg string) ([]string, error)
 type PkgHandlerFunc func(pkg string) error
 
 // ErrorSkip tells a walker to skip loading the deps of this dep.
-var ErrorSkip = errors.New("Skip this dep")
+var ErrorSkip = errors.New("skip this dep")
 
 // DependencyWalker is used to walker the dependencies of a package.
 // It will walk the dependencies for an import path only once.
@@ -65,7 +65,7 @@ func (dw *DependencyWalker) TraverseDependencies(pkg string) error {
 		// Read out our children
 		children, err := dw.readPackage(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("cant read deps of package %s with error %s", pkg, err.Error())
 		}
 		sort.Strings(children)
 		LogVerbose("Package %s has children %v", p, children)
@@ -119,10 +119,9 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	case err != nil && os.IsNotExist(err):
 		fetch = true
 	case err != nil:
-		LogVerbose("Error stating import path %s", err.Error())
-		return err
+		fmt.Errorf("cant fetch package error when stating import path %s", err.Error())
 	case s != nil && !s.IsDir():
-		return fmt.Errorf("Package %s is a file not a directory", pkg)
+		return fmt.Errorf("cant fetch package %s is a file not a directory", pkg)
 	}
 
 	// Fetch or update the package
@@ -135,8 +134,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	// Resolve the vcs
 	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
 	if err != nil {
-		LogVerbose("Failed to resolve package %s", pkg)
-		return err
+		return fmt.Errorf("resolving package %s version control %s", pkg, err.Error())
 	}
 
 	// Fetch or set
@@ -146,7 +144,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 		err = dl.setRevision(vcs, dep)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("cant fetch package %s %s", pkg, err.Error())
 	}
 
 	// Load the canticle deps file of our package and save it, not
@@ -154,7 +152,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	deps, err := dl.read(pkg)
 	switch {
 	case err != nil && !os.IsNotExist(err):
-		return err
+		return fmt.Errorf("cant fetch package %s couldn't read cant file %s", pkg, err.Error())
 	case err != nil && os.IsNotExist(err):
 		return nil
 	}
@@ -165,8 +163,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 func (dl *DependencyLoader) setRevision(vcs VCS, dep *Dependency) error {
 	LogVerbose("Setting rev on dep %+v", dep)
 	if err := vcs.SetRev(dep.Revision); err != nil {
-		LogVerbose("Failed to set revision on package %s", vcs.GetRoot())
-		return err
+		return fmt.Errorf("failed to set revision because %s", err.Error())
 	}
 	return nil
 }
@@ -174,8 +171,7 @@ func (dl *DependencyLoader) setRevision(vcs VCS, dep *Dependency) error {
 func (dl *DependencyLoader) fetchPackage(vcs VCS, dep *Dependency) error {
 	LogVerbose("Fetching dep %+v", dep)
 	if err := vcs.Create(dep.Revision); err != nil {
-		LogVerbose("Failed to create package %s", vcs.GetRoot())
-		return err
+		return fmt.Errorf("failed to fetch because %s", err.Error())
 	}
 	return nil
 }
@@ -223,46 +219,46 @@ func (ds *DependencySaver) SavePackageRevision(pkg string) error {
 	s, err := os.Stat(PackageSource(ds.gopath, pkg))
 	switch {
 	case s != nil && !s.IsDir():
-		return fmt.Errorf("Package %s is a file not a directory", pkg)
+		return fmt.Errorf("cant save revision for package %s is a file not a directory", pkg)
 	case err != nil && os.IsNotExist(err):
-		return fmt.Errorf("Package %s could not be found on disk", pkg)
+		return fmt.Errorf("cant save revision for package %s could not be found on disk", pkg)
 	case err != nil:
-		return err
+		return fmt.Errorf("cant save revision for package %s due to %s", pkg, err.Error())
 	}
 
 	// Resolve the repo
 	vcs, err := ds.resolver.ResolveRepo(pkg, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("cant resolve vcs for package %s %s", pkg, err.Error())
 	}
 	dep := &Dependency{}
 	dep.AddImportPaths(pkg)
 	dep.Root = vcs.GetRoot()
 	dep.Revision, err = vcs.GetRev()
 	if err != nil {
-		return err
+		return fmt.Errorf("cant get revision for package %s %s", pkg, err.Error())
 	}
 	dep.SourcePath, err = vcs.GetSource()
 	if err != nil {
-		return err
+		return fmt.Errorf("cant get vcs source for package %s %s", pkg, err.Error())
 	}
 
 	// Next load this pkg's deps and add them to our tree
 	pkgDeps, err := ds.read(pkg)
 	if err != nil {
-		return err
+		return fmt.Errorf("cant read deps for package %s %s", pkg, err.Error())
 	}
 	// Don't attempt to save the package which we are working against
 	if PathIsChild(ds.pkg, pkg) {
 		return nil
 	}
 	if err := ds.deps.AddDependencies(pkgDeps); err != nil {
-		return fmt.Errorf("pkg %s causes conflict adding deps %s", pkg, err.Error())
+		return fmt.Errorf("cant save deps as package %s causes conflict adding deps %s", pkg, err.Error())
 	}
 
 	// And finally add our self
 	if err := ds.deps.AddDependency(dep); err != nil {
-		return fmt.Errorf("pkg %s causes conflict %s, on disk version is at rev %s", pkg, err.Error(), dep.Revision)
+		return fmt.Errorf("cant save deps as package  %s causes conflict %s, on disk version is at rev %s", pkg, err.Error(), dep.Revision)
 	}
 	return nil
 }
