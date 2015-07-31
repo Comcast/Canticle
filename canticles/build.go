@@ -1,14 +1,6 @@
 package canticles
 
-import (
-	"flag"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"path"
-)
-
+/*
 // Build
 type Build struct {
 	flags        *flag.FlagSet
@@ -38,7 +30,7 @@ var BuildCommand = &Command{
 	ShortDescription: `download dependencies as defined in the packages Canticle file and build the project`,
 	LongDescription: `The build command first gets the packages (see cant get help). The build command may be used against both non Canticle defined (no revisions wil be set) and Canticle defined packages.
 
-If -insource is specified only one package may be specified. Instead packages will be fetched into the $GOPATH as necessary and set to the correct revision.  
+If -insource is specified only one package may be specified. Instead packages will be fetched into the $GOPATH as necessary and set to the correct revision.
 
 Specify -l to prefer local copies from $GOPATH when trying to fetch a package for building.
 
@@ -131,3 +123,4 @@ func (b *Build) WriteVersion(pkg string) error {
 	defer f.Close()
 	return bi.WriteGoFile(f)
 }
+*/

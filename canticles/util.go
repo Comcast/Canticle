@@ -2,10 +2,12 @@ package canticles
 
 import (
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -118,51 +120,6 @@ func PackageName(gopath, path string) (string, error) {
 	return strings.TrimPrefix(name, "src/"), nil
 }
 
-// BuildDir is the directory under the gopath that builds will be
-// done in.
-var BuildDir = "build"
-
-// BuildRoot returns the root dir for building a package.
-func BuildRoot(gopath, pkg string) string {
-	return path.Join(gopath, BuildDir, filepath.FromSlash(pkg))
-}
-
-// PackageBuildDir returns the directory of the package in its srcdir given
-// a gopath
-func PackageBuildDir(gopath, pkg string) string {
-	return path.Join(BuildSource(gopath, pkg), filepath.FromSlash(pkg))
-}
-
-// BuildSource returns the src dir in the build root for a package.
-func BuildSource(gopath, pkg string) string {
-	return path.Join(BuildRoot(gopath, filepath.FromSlash(pkg)), "src")
-}
-
-// SetupBuildRoot creates the build root for the package
-// gopath/{BuildDir} and returns the root.
-func SetupBuildRoot(gopath, pkg string) {
-	bs := BuildRoot(gopath, pkg)
-	if err := os.MkdirAll(bs, 0755); err != nil {
-		log.Fatalf("Error creating directory for buildroot: %s", err.Error())
-	}
-}
-
-// CopyToBuildRoot will copy a package from its home in the gopath/src
-// to the build root for buildpkg.
-func CopyToBuildRoot(gopath, buildPkg, pkg string) {
-	bs := BuildSource(gopath, buildPkg)
-	dest := path.Join(bs, pkg)
-	if err := os.MkdirAll(dest, 0755); err != nil {
-		log.Fatalf("Error creating directory for package in buildroot: %s", err.Error())
-	}
-	src := path.Join(gopath, "src", pkg)
-	dc := NewDirCopier(src, dest)
-	dc.CopyDot = true
-	if err := dc.Copy(); err != nil {
-		log.Fatalf("Error %s copying package %s to buildroot from %s", err.Error(), src, dest)
-	}
-}
-
 // Verbose controls whether verbose logs will be printed from this package
 var Verbose = false
 
@@ -173,17 +130,65 @@ func LogVerbose(fmtString string, args ...interface{}) {
 	}
 }
 
-// MergeStringsAsSet does a union on a an b
-func MergeStringsAsSet(a []string, b ...string) []string {
-OuterLoop:
-	for _, s := range b {
-		for _, s1 := range a {
-			if s == s1 {
-				continue OuterLoop
-			}
-		}
-		a = append(a, s)
-	}
+type StringSet map[string]bool
 
-	return a
+func NewStringSet() StringSet {
+	return make(map[string]bool)
+}
+
+// Add strings to set
+func (ss StringSet) Add(b ...string) {
+	for _, s := range b {
+		ss[s] = true
+	}
+}
+
+// Union performs the union of this with another string set
+func (ss StringSet) Union(sets ...StringSet) {
+	for _, set := range sets {
+		for str := range set {
+			ss[str] = true
+		}
+	}
+}
+
+// Array returns the set as a sorted array
+func (ss StringSet) Array() []string {
+	result := make([]string, 0, len(ss))
+	for s := range ss {
+		result = append(result, s)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (ss StringSet) Size() int {
+	return len(ss)
+}
+
+// Return the location of the depedency file for a path. Should be a
+// directory.
+func DependencyFile(p string) string {
+	return path.Join(p, "Canticle")
+}
+
+func VisibleSubDirectories(dirname string) ([]string, error) {
+	finfos, err := ioutil.ReadDir(dirname)
+	subdirs := make([]string, 0, len(finfos))
+	for _, f := range finfos {
+		if f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
+			subdirs = append(subdirs, path.Join(dirname, f.Name()))
+		}
+	}
+	return subdirs, err
+}
+
+func ProjectRoot(dirname string) string {
+	list := filepath.SplitList(dirname)
+	for i, part := range list {
+		if part == "src" {
+			return path.Join(list[:i]...)
+		}
+	}
+	return ""
 }

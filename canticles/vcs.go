@@ -154,7 +154,6 @@ type LocalVCS struct {
 	Package       string
 	Root          string
 	SrcPath       string
-	DestPath      string
 	Cmd           *vcs.Cmd
 	CurrentRevCmd *VCSCmd // CurrentRevCommand to check the current revision for sourcepath.
 	RemoteCmd     *VCSCmd // RemoteCmd to obtain the upstream (remote) for a repo
@@ -162,12 +161,11 @@ type LocalVCS struct {
 
 // NewLocalVCS returns a a LocalVCS with CurrentRevCmd initialized
 // from the cmd's name using RevCmds and RemoteCmd from RemoteCmds.
-func NewLocalVCS(pkg, root, srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
+func NewLocalVCS(pkg, root, srcPath string, cmd *vcs.Cmd) *LocalVCS {
 	return &LocalVCS{
 		Package:       pkg,
 		Root:          root,
 		SrcPath:       srcPath,
-		DestPath:      destPath,
 		Cmd:           cmd,
 		CurrentRevCmd: RevCmds[cmd.Name],
 		RemoteCmd:     RemoteCmds[cmd.Name],
@@ -177,14 +175,6 @@ func NewLocalVCS(pkg, root, srcPath, destPath string, cmd *vcs.Cmd) *LocalVCS {
 // Create will copy (using a dir copier) the package from srcpath to
 // destpath and then call set.
 func (lv *LocalVCS) Create(rev string) error {
-	src := PackageSource(lv.SrcPath, lv.Root)
-	dest := PackageSource(lv.DestPath, lv.Root)
-	LogVerbose("Copying localpath %s to %s", src, dest)
-	dc := NewDirCopier(src, dest)
-	dc.CopyDot = true
-	if err := dc.Copy(); err != nil {
-		return err
-	}
 	return lv.SetRev(rev)
 }
 
@@ -196,7 +186,7 @@ func (lv *LocalVCS) SetRev(rev string) error {
 		return nil
 	}
 	PatchGitVCS(lv.Cmd)
-	return lv.Cmd.TagSync(PackageSource(lv.DestPath, lv.Root), rev)
+	return lv.Cmd.TagSync(lv.Root, rev)
 }
 
 // GetRev will return current revision of the local repo.  If the
@@ -337,7 +327,7 @@ var ErrorResolutionFailure = errors.New("discovery failed")
 // RepoResolver provides the mechanisms for resolving a VCS from an
 // importpath and sourceUrl.
 type RepoResolver interface {
-	ResolveRepo(importPath string, dep *Dependency) (VCS, error)
+	ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error)
 }
 
 // DefaultRepoResolver attempts to resolve a repo using the go
@@ -360,7 +350,7 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 
 // ResolveRepo on a default reporesolver is effectively go get wraped
 // to use the url string.
-func (dr *DefaultRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+func (dr *DefaultRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	// We guess our vcs based off our url path if present
 	resolvePath := importPath
 
@@ -391,7 +381,7 @@ type RemoteRepoResolver struct {
 
 // ResolveRepo on the remoterepo resolver uses our own GuessVCS
 // method. It mostly looks at protocol cues like svn:// and git@.
-func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	resolvePath := importPath
 	if dep != nil && dep.SourcePath != "" {
 		resolvePath = dep.SourcePath
@@ -422,34 +412,32 @@ func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *Dependency) (V
 // LocalPath (treating it like a gopath) and provide VCS systems for
 // updating them in RemotePath (also treaded like a gopath).
 type LocalRepoResolver struct {
-	LocalPath  string
-	RemotePath string
+	LocalPath string
 }
 
 // ResolveRepo on a local resolver may return an error if:
 // *  The local package is not present (no directory) in LocalPath
 // *  The local "package" is a file in localpath
 // *  There was an error stating the directory for the localPkg
-func (lr *LocalRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
-	localPkg := PackageSource(lr.LocalPath, importPath)
-	LogVerbose("Finding local package: %s\n", localPkg)
-	s, err := os.Stat(localPkg)
+func (lr *LocalRepoResolver) ResolveRepo(fullPath string, dep *CanticleDependency) (VCS, error) {
+	LogVerbose("Finding local vcs for path: %s\n", fullPath)
+	s, err := os.Stat(fullPath)
 	switch {
 	case err != nil:
-		LogVerbose("Error stating local copy of package: %s %s\n", localPkg, err.Error())
+		LogVerbose("Error stating local copy of package: %s %s\n", fullPath, err.Error())
 		return nil, err
 	case s != nil && s.IsDir():
-		cmd, root, err := vcs.FromDir(localPkg, lr.LocalPath)
+		cmd, root, err := vcs.FromDir(fullPath, lr.LocalPath)
 		if err != nil {
 			LogVerbose("Error with local vcs: %s", err.Error())
 			return nil, err
 		}
 		root, _ = PackageName(lr.LocalPath, path.Join(lr.LocalPath, root))
-		v := NewLocalVCS(importPath, root, lr.LocalPath, lr.RemotePath, cmd)
+		v := NewLocalVCS(root, root, lr.LocalPath, cmd)
 		LogVerbose("Created vcs for local pkg: %+v", v)
 		return v, nil
 	default:
-		LogVerbose("Could not resolve local vcs for package: %s", localPkg)
+		LogVerbose("Could not resolve local vcs for package: %s", fullPath)
 		return nil, ErrorResolutionFailure
 	}
 }
@@ -463,7 +451,7 @@ type CompositeRepoResolver struct {
 // ResolveRepo for the composite attempts its sub Resolvers in order
 // ignoring any errors. If all resolvers fail ErrorResolutionFailure
 // will be returned.
-func (cr *CompositeRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+func (cr *CompositeRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	for _, r := range cr.Resolvers {
 		vcs, err := r.ResolveRepo(importPath, dep)
 		if vcs != nil && err == nil {
@@ -496,7 +484,7 @@ func NewMemoizedRepoResolver(resolver RepoResolver) *MemoizedRepoResolver {
 
 // ResolveRepo on a MemoizedRepoResolver will cache the results of its
 // child resolver.
-func (mr *MemoizedRepoResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+func (mr *MemoizedRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	r := mr.resolvedPaths[importPath]
 	if r != nil {
 		return r.v, r.err
