@@ -23,11 +23,10 @@ var ErrorSkip = errors.New("skip this dep")
 // DependencyWalker is used to walker the dependencies of a package.
 // It will walk the dependencies for an import path only once.
 type DependencyWalker struct {
-	// Memoization of loaded packages
-	pkgQueue       []string
-	loadedPackages map[string]bool
-	readPackage    PkgReaderFunc
-	handleDep      PkgHandlerFunc
+	nodeQueue   []string
+	visited     map[string]bool
+	readPackage PkgReaderFunc
+	handleDep   PkgHandlerFunc
 }
 
 // NewDependencyWalker creates a new dep loader. It uses the
@@ -35,9 +34,9 @@ type DependencyWalker struct {
 // with the resulting dependencies.
 func NewDependencyWalker(reader PkgReaderFunc, handler PkgHandlerFunc) *DependencyWalker {
 	return &DependencyWalker{
-		loadedPackages: make(map[string]bool),
-		handleDep:      handler,
-		readPackage:    reader,
+		visited:     make(map[string]bool),
+		handleDep:   handler,
+		readPackage: reader,
 	}
 }
 
@@ -45,12 +44,12 @@ func NewDependencyWalker(reader PkgReaderFunc, handler PkgHandlerFunc) *Dependen
 // a breadth first search. If handler returns the special error
 // ErrorSkip it does not read the deps of this package.
 func (dw *DependencyWalker) TraverseDependencies(pkg string) error {
-	dw.pkgQueue = append(dw.pkgQueue, pkg)
-	for len(dw.pkgQueue) > 0 {
+	dw.nodeQueue = append(dw.nodeQueue, pkg)
+	for len(dw.nodeQueue) > 0 {
 		// Dequeue and mark loaded
-		p := dw.pkgQueue[0]
-		dw.pkgQueue = dw.pkgQueue[1:]
-		dw.loadedPackages[p] = true
+		p := dw.nodeQueue[0]
+		dw.nodeQueue = dw.nodeQueue[1:]
+		dw.visited[p] = true
 		LogVerbose("Handling pkg: %+v", p)
 
 		// Inform our handler of this package
@@ -71,20 +70,18 @@ func (dw *DependencyWalker) TraverseDependencies(pkg string) error {
 		LogVerbose("Package %s has children %v", p, children)
 
 		for _, child := range children {
-			// If we already traversed this node don't re-queue it
-			if dw.loadedPackages[child] {
+			if dw.visited[child] {
 				continue
 			}
-			// Push back the dep into the queue
-			dw.pkgQueue = append(dw.pkgQueue, child)
+			dw.nodeQueue = append(dw.nodeQueue, child)
 		}
 	}
 
 	return nil
 }
 
-// A canticle depreader reads the Canticle deps of a package
-type CantDepReader func(importPath string) (Dependencies, error)
+// A DepReader reads the set of deps for a package
+type DepReaderFunc func(importPath string) (Dependencies, error)
 
 // A DependencyLoader fetches and set the correct revision for a
 // dependency using the specified resolver.
@@ -92,12 +89,12 @@ type DependencyLoader struct {
 	deps     Dependencies
 	gopath   string
 	resolver RepoResolver
-	read     CantDepReader
+	read     DepReaderFunc
 }
 
 // NewDependencyLoader returns a DependencyLoader initialized with the
 // resolver func.
-func NewDependencyLoader(resolver RepoResolver, reader CantDepReader, gopath string) *DependencyLoader {
+func NewDependencyLoader(resolver RepoResolver, reader DepReaderFunc, gopath string) *DependencyLoader {
 	return &DependencyLoader{
 		deps:     NewDependencies(),
 		read:     reader,
@@ -125,14 +122,14 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	}
 
 	// Fetch or update the package
-	dep := dl.deps.DepForImportPath(pkg)
+	dep := dl.deps.Dependency(pkg)
 	if dep == nil {
-		dep = &Dependency{ImportPaths: []string{pkg}}
+		dep = NewDependency(pkg)
 		LogVerbose("Creating Dep: %+v", dep)
 	}
 
 	// Resolve the vcs
-	vcs, err := dl.resolver.ResolveRepo(pkg, dep)
+	vcs, err := dl.resolver.ResolveRepo(pkg, nil)
 	if err != nil {
 		return fmt.Errorf("resolving package %s version control %s", pkg, err.Error())
 	}
@@ -157,12 +154,13 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 		return nil
 	}
 	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
-	return dl.deps.AddDependencies(deps)
+	dl.deps.AddDependencies(deps)
+	return nil
 }
 
 func (dl *DependencyLoader) setRevision(vcs VCS, dep *Dependency) error {
 	LogVerbose("Setting rev on dep %+v", dep)
-	if err := vcs.SetRev(dep.Revision); err != nil {
+	if err := vcs.SetRev(""); err != nil {
 		return fmt.Errorf("failed to set revision because %s", err.Error())
 	}
 	return nil
@@ -170,7 +168,7 @@ func (dl *DependencyLoader) setRevision(vcs VCS, dep *Dependency) error {
 
 func (dl *DependencyLoader) fetchPackage(vcs VCS, dep *Dependency) error {
 	LogVerbose("Fetching dep %+v", dep)
-	if err := vcs.Create(dep.Revision); err != nil {
+	if err := vcs.Create(""); err != nil {
 		return fmt.Errorf("failed to fetch because %s", err.Error())
 	}
 	return nil
@@ -182,15 +180,69 @@ func (dl *DependencyLoader) FetchedDeps() Dependencies {
 	return dl.deps
 }
 
+/*
+// ProjectSaver is a handler for dependencies that will save all
+// dependencies current revisions. Call Dependencies() to retrieve the
+// loaded Dependencies.
+type ProjectSaver struct {
+	deps     Dependencies
+	resolver RepoResolver
+	rootPath string
+}
+
+// NewProjectSaver uses the VCS repo resolver and the rootPath to resolved
+// any vcs systems below rootpath.
+func NewProjectSaver(resolver RepoResolver, rootPath string) *ProjectSaver {
+	return &ProjectSaver{
+		deps:     NewDependencies(),
+		resolver: resolver,
+		rootPath: rootPath,
+	}
+}
+
+// SaveProjectPath adds this path to the project as a dep if the vcs
+// root is not a parent of or equal to the rootPath for the project.
+// E.g. don't save ourselves as a dep of ourselves cause thats stupid.
+func (ps *ProjectSaver) SaveProjectPath(path string) error {
+	// Resolve any vcs repo, if  we can't find it thats fine read the children
+	vcs, err := ps.resolver.ResolveRepo(path, nil)
+	if err != nil {
+		LogVerbose("No vcs found at path %s %s", path, err.Error())
+		return nil
+	}
+	dep := &Dependency{}
+	dep.Root = vcs.GetRoot()
+	// If its VCS is part of the project ignore it and traverse down
+	if dep.Root == ps.rootPath || PathIsChild(ps.rootPath, dep.Root) {
+		return nil
+	}
+	rev, err := vcs.GetRev()
+	if err != nil {
+		return fmt.Errorf("cant get revision from vcs at %s %s", dep.Root, err.Error())
+	}
+	dep.Revisions.Add(rev)
+	source, err := vcs.GetSource()
+	if err != nil {
+		return fmt.Errorf("cant get vcs source from vcs at %s %s", dep.Root, err.Error())
+	}
+	dep.Sources.Add(source)
+	ps.deps.AddDependency(dep)
+	return ErrorSkip
+}
+
+// Returns the resolved dependencies for this project. May be empty,
+// will not be null.
+func (ps *ProjectSaver) Dependencies() Dependencies {
+	return ps.deps
+}
+*/
 // DependencySaver is a handler for dependencies that will save all
 // dependencies current revisions. Call Dependencies() to retrieve the
 // loaded Dependencies.
 type DependencySaver struct {
-	deps     Dependencies
-	gopath   string
-	resolver RepoResolver
-	read     CantDepReader
-	pkg      string
+	deps   Dependencies
+	gopath string
+	read   DepReaderFunc
 }
 
 // NewDependencySaver builds a new dependencysaver to work in the
@@ -199,68 +251,80 @@ type DependencySaver struct {
 // DependencySaver will not attempt to load remote dependencies even
 // if the resolverfunc can handle them. Deps that resolve using ignore
 // will not be saved.
-func NewDependencySaver(resolver RepoResolver, reader CantDepReader, gopath, pkg string) *DependencySaver {
+func NewDependencySaver(reader DepReaderFunc, gopath string) *DependencySaver {
 	return &DependencySaver{
-		deps:     NewDependencies(),
-		resolver: resolver,
-		read:     reader,
-		gopath:   gopath,
-		pkg:      pkg,
+		deps:   NewDependencies(),
+		read:   reader,
+		gopath: gopath,
 	}
 }
 
-// SavePackageRevision will attempt to load the revision of the
-// package dep and add it to our Dependencies(). If errs contains any
-// errors it will halt. If the package can not be loaded from gopath
-// (is not a directory, does not exist, etc.) an error will be
-// returned.
-func (ds *DependencySaver) SavePackageRevision(pkg string) error {
+// SavePackageDeps uses the reader to read all 1st order deps of this
+// pkg.
+func (ds *DependencySaver) SavePackageDeps(path string) error {
 	// Check if we can find this package
-	s, err := os.Stat(PackageSource(ds.gopath, pkg))
+	s, err := os.Stat(path)
 	switch {
 	case s != nil && !s.IsDir():
-		return fmt.Errorf("cant save revision for package %s is a file not a directory", pkg)
+		err = fmt.Errorf("cant save deps for path %s is a file not a directory", path)
 	case err != nil && os.IsNotExist(err):
-		return fmt.Errorf("cant save revision for package %s could not be found on disk", pkg)
+		err = fmt.Errorf("cant save deps for path %s could not be found on disk", path)
 	case err != nil:
-		return fmt.Errorf("cant save revision for package %s due to %s", pkg, err.Error())
+		err = fmt.Errorf("cant save deps for path %s due to %s", path, err.Error())
+	}
+	pkg, err := PackageName(ds.gopath, path)
+	if err != nil {
+		return fmt.Errorf("Error getting package name for path %s", path)
+	}
+	if err != nil {
+		LogVerbose("Error stating path %s %s", path, err.Error())
+		dep := NewDependency(pkg)
+		dep.Err = err
+		ds.deps.AddDependency(dep)
+		return ErrorSkip
 	}
 
-	// Resolve the repo
-	vcs, err := ds.resolver.ResolveRepo(pkg, nil)
+	pkgDeps, err := ds.read(path)
 	if err != nil {
-		return fmt.Errorf("cant resolve vcs for package %s %s", pkg, err.Error())
-	}
-	dep := &Dependency{}
-	dep.AddImportPaths(pkg)
-	dep.Root = vcs.GetRoot()
-	dep.Revision, err = vcs.GetRev()
-	if err != nil {
-		return fmt.Errorf("cant get revision for package %s %s", pkg, err.Error())
-	}
-	dep.SourcePath, err = vcs.GetSource()
-	if err != nil {
-		return fmt.Errorf("cant get vcs source for package %s %s", pkg, err.Error())
-	}
-
-	// Next load this pkg's deps and add them to our tree
-	pkgDeps, err := ds.read(pkg)
-	if err != nil {
-		return fmt.Errorf("cant read deps for package %s %s", pkg, err.Error())
-	}
-	// Don't attempt to save the package which we are working against
-	if PathIsChild(ds.pkg, pkg) {
+		LogVerbose("Error reading pkg deps %s %s", pkg, err.Error())
+		dep := NewDependency(pkg)
+		dep.Err = fmt.Errorf("cant read deps for package %s %s", pkg, err.Error())
+		ds.deps.AddDependency(dep)
 		return nil
 	}
-	if err := ds.deps.AddDependencies(pkgDeps); err != nil {
-		return fmt.Errorf("cant save deps as package %s causes conflict adding deps %s", pkg, err.Error())
+	if len(pkgDeps) == 0 {
+		return nil
 	}
 
-	// And finally add our self
-	if err := ds.deps.AddDependency(dep); err != nil {
-		return fmt.Errorf("cant save deps as package  %s causes conflict %s, on disk version is at rev %s", pkg, err.Error(), dep.Revision)
+	dep := NewDependency(pkg)
+	for _, d := range pkgDeps {
+		d.ImportedFrom.Add(pkg)
 	}
+	ds.deps.AddDependencies(pkgDeps)
+	for _, pkgDep := range pkgDeps {
+		dep.Imports.Add(pkgDep.ImportPath)
+	}
+	ds.deps.AddDependency(dep)
 	return nil
+}
+
+// PackagePaths returns all subdirs and all import paths for a pkg.
+func (ds *DependencySaver) PackagePaths(pkg string) ([]string, error) {
+	subdirs, err := VisibleSubDirectories(pkg)
+	if err != nil {
+		return []string{}, err
+	}
+	LogVerbose("Package has subdirs %v", subdirs)
+	dep := ds.deps.Dependency(pkg)
+	if dep == nil {
+		return subdirs, nil
+	}
+	imports := dep.Imports.Array()
+	for i, imp := range imports {
+		imports[i] = PackageSource(ds.gopath, imp)
+	}
+	LogVerbose("Package has imports %v", imports)
+	return append(subdirs, imports...), nil
 }
 
 // Dependencies returns the resolved dependencies from dependency

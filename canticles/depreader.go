@@ -3,9 +3,6 @@ package canticles
 import (
 	"encoding/json"
 	"os"
-	"path"
-	"path/filepath"
-	"strings"
 )
 
 // DepReader works in a particular gopath to read the
@@ -14,11 +11,60 @@ type DepReader struct {
 	Gopath string
 }
 
-// ReadAllCantDeps begins at a root folder and traverses
-// all folder and canticle deps listed. It will "swallow" any
-// os.IsNotExist err's as well, possibly returning an empty set of
-// deps.
-func (dr *DepReader) ReadAllCantDeps(root string) (Dependencies, error) {
+// ReadCanticleDependencies returns the dependencies listed in the
+// packages Canticle file. Dependencies will never be nil.
+func (dr *DepReader) ReadCanticleDependencies(pkg string) ([]CanticleDependency, error) {
+	var deps []CanticleDependency
+	f, err := os.Open(DependencyFile(PackageSource(dr.Gopath, pkg)))
+	if err != nil {
+		return deps, err
+	}
+	LogVerbose("Reading canticle file: %s", f.Name())
+	defer f.Close()
+	d := json.NewDecoder(f)
+	if err := d.Decode(&deps); err != nil {
+		return deps, err
+	}
+	return deps, nil
+}
+
+// Read both the go and cant deps of a path.
+func (dr *DepReader) ReadAllDeps(path string) (Dependencies, error) {
+	allDeps := NewDependencies()
+	// We only want to process directories, and ignore files
+	pname, err := PackageName(dr.Gopath, path)
+	if err != nil {
+		return allDeps, err
+	}
+	// Attemp to read its canticle deps
+	cdeps, err := dr.ReadCanticleDependencies(pname)
+	if err != nil && !os.IsNotExist(err) {
+		return allDeps, err
+	}
+	for _, cdep := range cdeps {
+		if cdep.All {
+			allDeps.AddDeps(cdep.Root)
+		}
+	}
+	// If this is a dir attempt to read its deps, ignore all errors
+	goDeps, err := dr.ReadGoRemoteDependencies(pname)
+	if err != nil {
+		switch e := err.(type) {
+		case *PackageError:
+			if !e.IsNoBuildable() {
+				return allDeps, err
+			}
+		default:
+			return allDeps, err
+		}
+	}
+	allDeps.AddDeps(goDeps...)
+	return allDeps, nil
+}
+
+/*
+// ReadAllDeps reads all go and canticle deps.
+func (dr *DepReader) ReadAllDeps(root string) (Dependencies, error) {
 	allDeps := NewDependencies()
 	err := filepath.Walk(PackageSource(dr.Gopath, root), func(p string, f os.FileInfo, err error) error {
 		// Go src dirs don't have dot prefixes
@@ -40,81 +86,35 @@ func (dr *DepReader) ReadAllCantDeps(root string) (Dependencies, error) {
 			return err
 		}
 		// If this is a dir attempt to read its canticle deps
-		deps, err := dr.ReadCanticleDependencies(pname)
+		cdeps, err := dr.ReadCanticleDependencies(pname)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		return allDeps.AddDependencies(deps)
-
-	})
-	return allDeps, err
-}
-
-// ReadCanticleDependencies returns the dependencies listed in the
-// packages Canticle file. Dependencies will never be nil.
-func (dr *DepReader) ReadCanticleDependencies(pkg string) (Dependencies, error) {
-	deps := NewDependencies()
-	f, err := os.Open(path.Join(PackageSource(dr.Gopath, pkg), "Canticle"))
-	if err != nil {
-		return deps, err
-	}
-	LogVerbose("Reading canticle file: %s", f.Name())
-	defer f.Close()
-
-	d := json.NewDecoder(f)
-	if err := d.Decode(&deps); err != nil {
-		return deps, err
-	}
-	return deps, nil
-}
-
-// ReadAllRemoteDependencies starts at a root pkg and traverses
-// downwards reading deps. PackageErrors with e.IsNoBuildable will be
-// ignored.
-func (dr *DepReader) ReadAllRemoteDependencies(root string) ([]string, error) {
-	allDeps := []string{}
-	err := filepath.Walk(PackageSource(dr.Gopath, root), func(p string, f os.FileInfo, err error) error {
-		// Go src dirs don't have dot prefixes
-		if strings.HasPrefix(filepath.Base(p), ".") {
-			if f.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		// We only want to process directories, and ignore files
-		if !f.IsDir() {
-			return nil
-		}
-		pname, err := PackageName(dr.Gopath, p)
-		if err != nil {
-			return err
-		}
+		allDeps.AddCantDeps(cdeps...)
 		// If this is a dir attempt to read its deps, ignore all errors
-		deps, err := dr.ReadRemoteDependencies(pname)
+		goDeps, err := dr.ReadGoRemoteDependencies(pname)
 		if err != nil {
 			switch e := err.(type) {
-			default:
-				return err
 			case *PackageError:
 				if !e.IsNoBuildable() {
 					return err
 				}
+			default:
+				return err
 
 			}
 		}
-		allDeps = MergeStringsAsSet(allDeps, deps...)
+		allDeps.AddGoDeps(goDeps...)
 		return nil
 
 	})
 	return allDeps, err
 }
+*/
 
-// ReadRemoteDependencies reads the dependencies for package p listed
+// ReadGoRemoteDependencies reads the dependencies for package p listed
 // as imports in *.go files, including tests, and returns the result.
-func (dr *DepReader) ReadRemoteDependencies(importPath string) ([]string, error) {
+func (dr *DepReader) ReadGoRemoteDependencies(importPath string) ([]string, error) {
 	pkg, err := LoadPackage(importPath, dr.Gopath)
 	if err != nil {
 		return []string{}, err

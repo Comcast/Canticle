@@ -29,9 +29,9 @@ type Command struct {
 
 // Commands is the prebuild list of Canticle commands.
 var Commands = map[string]*Command{
-	"build": BuildCommand,
-	"get":   GetCommand,
-	"save":  SaveCommand,
+	//	"build": BuildCommand,
+	"get":  GetCommand,
+	"save": SaveCommand,
 }
 
 // Usage will print the commands UsageLine and LongDescription and
@@ -57,7 +57,7 @@ func GetCurrentPackage() (string, error) {
 // package if none are present.
 func ParseCmdLinePackages(args []string) []string {
 	if len(args) == 0 {
-		pkg, err := GetCurrentPackage()
+		pkg, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("cant get current package: %s", err.Error())
 		}

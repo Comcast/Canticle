@@ -6,19 +6,26 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"path"
+	"os"
 )
 
 type Save struct {
-	flags   *flag.FlagSet
-	Verbose bool
+	flags    *flag.FlagSet
+	Verbose  bool
+	DryRun   bool
+	Force    bool
+	Resolver ConflictResolver
 }
 
 func NewSave() *Save {
 	f := flag.NewFlagSet("get", flag.ExitOnError)
-	s := &Save{flags: f}
+	s := &Save{
+		flags:    f,
+		Resolver: &PromptResolution{},
+	}
 	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff")
-
+	f.BoolVar(&s.Verbose, "f", false, "Force a save even when there are missing deps or version conflicts.")
+	f.BoolVar(&s.DryRun, "d", false, "Don't save the deps, just print them.")
 	return s
 }
 
@@ -26,64 +33,86 @@ var save = NewSave()
 
 var SaveCommand = &Command{
 	Name:             "save",
-	UsageLine:        "save [-v] [package]",
+	UsageLine:        "save [-f] [-d] [-v]",
 	ShortDescription: "Save the current revision of all dependencies in a Canticle file.",
-	LongDescription: `The save command will save the dependencies for a package into a Canticle file. All dependencies must be present on disk and in the GOROOT. The generate Canticle file will be saved in the packages root directory.
+	LongDescription: `The save command will save the dependencies for a package into a Canticle file.  If at the src level save the current revision of all packages in belows. All dependencies must be present on disk and in the GOROOT. The generated Canticle file will be saved in the packages root directory.
 
-Specify -v to print out a verbose set of operations instead of just errors.`,
+Specify -v to print out a verbose set of operations instead of just errors.
+
+Specify -f to force a save even with missing dependencies or conflicting versions.`,
 	Flags: save.flags,
 	Cmd:   save,
 }
 
+// Run the save command, ignores args. Uses its flagset instead.
 func (s *Save) Run(args []string) {
 	if s.Verbose {
 		Verbose = true
 	}
 	defer func() { Verbose = false }()
 
-	pkgs := ParseCmdLinePackages(s.flags.Args())
-	for _, pkg := range pkgs {
-		ldeps, err := s.LocalDeps(pkg)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = s.SaveDeps(pkg, ldeps)
-		if err != nil {
-			log.Fatal(err)
-		}
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := s.SaveProject(wd); err != nil {
+		log.Fatal(err)
 	}
 }
 
-// LocalDeps reads a packages dependencies on disk an there
-// versions and remotes.
-func (s *Save) LocalDeps(pkg string) (Dependencies, error) {
-	LogVerbose("Save dependencies for package %+v", pkg)
-	gopath := EnvGoPath()
-
-	// Setup our resolvers, loaders, and walkers
-	lr := &LocalRepoResolver{LocalPath: gopath}
-	resolver := NewMemoizedRepoResolver(lr)
-	depReader := &DepReader{gopath}
-	ds := NewDependencySaver(resolver, depReader.ReadAllCantDeps, gopath, pkg)
-	dw := NewDependencyWalker(depReader.ReadAllRemoteDependencies, ds.SavePackageRevision)
-
-	// And walk it
-	err := dw.TraverseDependencies(pkg)
+func (s *Save) SaveProject(path string) error {
+	_, err := s.ReadDeps(EnvGoPath(), path)
 	if err != nil {
-		return nil, fmt.Errorf("cant save package %s", err.Error())
+		return err
 	}
-	LogVerbose("Package %s has remotes: %+v", pkg, ds.Dependencies())
+	return nil
 
+	/*
+		pdeps, err := s.ReadProjects(path)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("DEPS: %+v", pdeps)
+		return nil
+
+			cdeps, err := s.Resolver.ResolveConflicts(pdeps, deps)
+			if err != nil {
+				return err
+			}
+
+		return s.SaveDeps(path, cdeps)
+	*/
+}
+
+// ReadDeps reads all dependencies and transitive deps for deps. May
+// mutate deps.
+func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
+	LogVerbose("Reading deps for repos in path %+v", gopath)
+	reader := &DepReader{Gopath: gopath}
+	ds := NewDependencySaver(reader.ReadAllDeps, gopath)
+	dw := NewDependencyWalker(ds.PackagePaths, ds.SavePackageDeps)
+	if err := dw.TraverseDependencies(path); err != nil {
+		return nil, fmt.Errorf("cant read path dep tree %s %s", path, err.Error())
+	}
+	LogVerbose("Built dep tree: %+v", ds.Dependencies())
 	return ds.Dependencies(), nil
 }
 
 // SaveDeps saves a canticle file into deps containing deps.
-func (s *Save) SaveDeps(pkg string, deps Dependencies) error {
+func (s *Save) SaveDeps(path string, deps []CanticleDependency) error {
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return err
 	}
-
-	cantFile := path.Join(PackageSource(EnvGoPath(), pkg), "Canticle")
-	return ioutil.WriteFile(cantFile, j, 0644)
+	if s.DryRun {
+		fmt.Println(string(j))
+		return nil
+	}
+	return ioutil.WriteFile(DependencyFile(path), j, 0644)
 }
+
+// Psuedo Code:
+// save set of repos
+// get set of deps
+// report conflicts
+// save
