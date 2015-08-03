@@ -419,8 +419,9 @@ type LocalRepoResolver struct {
 // *  The local package is not present (no directory) in LocalPath
 // *  The local "package" is a file in localpath
 // *  There was an error stating the directory for the localPkg
-func (lr *LocalRepoResolver) ResolveRepo(fullPath string, dep *CanticleDependency) (VCS, error) {
-	LogVerbose("Finding local vcs for path: %s\n", fullPath)
+func (lr *LocalRepoResolver) ResolveRepo(pkg string, dep *CanticleDependency) (VCS, error) {
+	LogVerbose("Finding local vcs for package: %s\n", pkg)
+	fullPath := PackageSource(lr.LocalPath, pkg)
 	s, err := os.Stat(fullPath)
 	switch {
 	case err != nil:

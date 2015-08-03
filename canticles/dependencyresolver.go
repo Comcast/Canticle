@@ -21,8 +21,10 @@ type DependencySource struct {
 
 func NewDependencySource(root string) *DependencySource {
 	return &DependencySource{
-		Root: root,
-		Deps: NewDependencies(),
+		Root:      root,
+		Deps:      NewDependencies(),
+		Revisions: NewStringSet(),
+		Sources:   NewStringSet(),
 	}
 }
 
@@ -36,7 +38,9 @@ func NewDependencySources(size int) *DependencySources {
 
 func (ds *DependencySources) DepSource(dep *Dependency) *DependencySource {
 	for _, source := range ds.Sources {
-		if PathIsChild(source.Root, dep.ImportPath) {
+		LogVerbose("\tTesting %s child of %s", source.Root, dep.ImportPath)
+		if source.Root == dep.ImportPath || PathIsChild(source.Root, dep.ImportPath) {
+			LogVerbose("\t\t%s is child of %s", source.Root, dep.ImportPath)
 			return source
 		}
 	}
@@ -47,28 +51,40 @@ func (ds *DependencySources) AddSource(source *DependencySource) {
 	ds.Sources = append(ds.Sources, source)
 }
 
-type DependencyResolver struct {
-	RootPath string
-	Resolver RepoResolver
+func (ds *DependencySources) String() string {
+	str := ""
+	for _, source := range ds.Sources {
+		str += fmt.Sprintf("%s: [\n\t%+v]\n", source.Root, source)
+	}
+	return str
 }
 
-func (dr *DependencyResolver) ResolveDeps(deps Dependencies) (*DependencySources, error) {
+type SourcesResolver struct {
+	RootPath, Gopath string
+	Resolver         RepoResolver
+}
+
+func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources, error) {
 	sources := NewDependencySources(len(deps))
 	for _, dep := range deps {
+		LogVerbose("\tFinding source for %s", dep.ImportPath)
 		// If we already have a source
 		// for this dep just continue
-		if ds := sources.DepSource(dep); dep != nil {
-			ds.Deps.AddDependency(dep)
+		if source := sources.DepSource(dep); source != nil {
+			LogVerbose("\tDep already added %s", dep.ImportPath)
+			source.Deps.AddDependency(dep)
 			continue
 		}
 
 		// Otherwise find the vcs root for it
-		vcs, err := dr.Resolver.ResolveRepo(dep.ImportPath, nil)
+		vcs, err := sr.Resolver.ResolveRepo(dep.ImportPath, nil)
 		if err != nil {
 			return nil, err
 		}
 		root := vcs.GetRoot()
-		if root == dr.RootPath {
+		rootSrc := PackageSource(sr.Gopath, root)
+		if rootSrc == sr.RootPath || PathIsChild(rootSrc, sr.RootPath) {
+			LogVerbose("Skipping pkg %s since its at our save level", sr.RootPath)
 			continue
 		}
 		source := NewDependencySource(root)
@@ -78,13 +94,15 @@ func (dr *DependencyResolver) ResolveDeps(deps Dependencies) (*DependencySources
 			return nil, fmt.Errorf("cant get revision from vcs at %s %s", root, err.Error())
 		}
 		source.Revisions.Add(rev)
+		source.OnDiskRevision = rev
 
 		vcsSource, err := vcs.GetSource()
 		if err != nil {
 			return nil, fmt.Errorf("cant get vcs source from vcs at %s %s", root, err.Error())
 		}
 		source.Sources.Add(vcsSource)
-
+		source.OnDiskSource = vcsSource
+		source.Deps.AddDependency(dep)
 		sources.AddSource(source)
 	}
 	return sources, nil
