@@ -61,27 +61,35 @@ func (s *Save) Run(args []string) {
 }
 
 func (s *Save) SaveProject(path string) error {
-	_, err := s.ReadDeps(EnvGoPath(), path)
+	gopath := EnvGoPath()
+	deps, err := s.ReadDeps(gopath, path)
 	if err != nil {
 		return err
 	}
+	sources, err := s.GetSources(gopath, path, deps)
+	if err != nil {
+		return err
+	}
+	LogVerbose("Discovered sources:\n%+v", sources)
+	cantdeps, err := s.Resolver.ResolveConflicts(sources)
+	if err != nil {
+		return err
+	}
+	if err := s.SaveDeps(path, cantdeps); err != nil {
+		return err
+	}
 	return nil
+}
 
-	/*
-		pdeps, err := s.ReadProjects(path)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("DEPS: %+v", pdeps)
-		return nil
-
-			cdeps, err := s.Resolver.ResolveConflicts(pdeps, deps)
-			if err != nil {
-				return err
-			}
-
-		return s.SaveDeps(path, cdeps)
-	*/
+func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySources, error) {
+	LogVerbose("Getting local vcs sources for repos in path %+v", gopath)
+	repoResolver := NewMemoizedRepoResolver(&LocalRepoResolver{gopath})
+	sourceResolver := &SourcesResolver{
+		Gopath:   gopath,
+		RootPath: path,
+		Resolver: repoResolver,
+	}
+	return sourceResolver.ResolveSources(deps)
 }
 
 // ReadDeps reads all dependencies and transitive deps for deps. May
@@ -99,7 +107,7 @@ func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 }
 
 // SaveDeps saves a canticle file into deps containing deps.
-func (s *Save) SaveDeps(path string, deps []CanticleDependency) error {
+func (s *Save) SaveDeps(path string, deps []*CanticleDependency) error {
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return err
