@@ -186,7 +186,7 @@ func (lv *LocalVCS) SetRev(rev string) error {
 		return nil
 	}
 	PatchGitVCS(lv.Cmd)
-	return lv.Cmd.TagSync(lv.Root, rev)
+	return lv.Cmd.TagSync(PackageSource(lv.SrcPath, lv.Root), rev)
 }
 
 // GetRev will return current revision of the local repo.  If the
