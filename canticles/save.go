@@ -118,9 +118,3 @@ func (s *Save) SaveDeps(path string, deps []*CanticleDependency) error {
 	}
 	return ioutil.WriteFile(DependencyFile(path), j, 0644)
 }
-
-// Psuedo Code:
-// save set of repos
-// get set of deps
-// report conflicts
-// save

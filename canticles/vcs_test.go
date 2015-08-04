@@ -37,13 +37,12 @@ func TestRemoteRepoResolver(t *testing.T) {
 	rr := &RemoteRepoResolver{os.ExpandEnv("$GOPATH")}
 
 	// NOTE: UPDATE ME IF WE EVER MOVE THIS
-	dep := &Dependency{
-		ImportPaths: []string{"github.comcast.com/viper-cog/cant/canticle"},
-		SourcePath:  "git@github.comcast.com:viper-cog/cant.git",
-		Root:        "github.comcast.com/viper-cog/cant",
+	dep := &CanticleDependency{
+		SourcePath: "git@github.comcast.com:viper-cog/cant.git",
+		Root:       "github.comcast.com/viper-cog/cant",
 	}
 
-	vcs, err := rr.ResolveRepo(dep.ImportPaths[0], dep)
+	vcs, err := rr.ResolveRepo(dep.Root, dep)
 	if err != nil {
 		t.Errorf("RemoteRepoResolver returned error for our own repo: %s", err.Error())
 	}
@@ -61,11 +60,11 @@ func TestRemoteRepoResolver(t *testing.T) {
 	}
 
 	// Try a VCS resolution that just flat fails
-	dep = &Dependency{
-		ImportPaths: []string{"nothere.comcast.com/viper-cog/cant"},
-		SourcePath:  "git@nothere.comcast.com:viper-cog/cant.git",
+	dep = &CanticleDependency{
+		Root:       "nothere.comcast.com/viper-cog/cant",
+		SourcePath: "git@nothere.comcast.com:viper-cog/cant.git",
 	}
-	vcs, err = rr.ResolveRepo(dep.ImportPaths[0], dep)
+	vcs, err = rr.ResolveRepo(dep.Root, dep)
 	if err == nil {
 		t.Errorf("RemoteRepoResolver returned no error for a package that does not exist")
 	}
@@ -76,8 +75,7 @@ func TestRemoteRepoResolver(t *testing.T) {
 
 func TestLocalRepoResolver(t *testing.T) {
 	lr := &LocalRepoResolver{
-		LocalPath:  os.ExpandEnv("$GOPATH"),
-		RemotePath: "/tmp/",
+		LocalPath: os.ExpandEnv("$GOPATH"),
 	}
 
 	pkg := "github.comcast.com/viper-cog/cant"
@@ -146,7 +144,7 @@ func (v *TestVCS) GetRoot() string {
 
 type testResolve struct {
 	path string
-	dep  *Dependency
+	dep  *CanticleDependency
 }
 
 type testResolver struct {
@@ -154,7 +152,7 @@ type testResolver struct {
 	response    []resolve
 }
 
-func (tr *testResolver) ResolveRepo(i string, d *Dependency) (VCS, error) {
+func (tr *testResolver) ResolveRepo(i string, d *CanticleDependency) (VCS, error) {
 	tr.resolutions = append(tr.resolutions, testResolve{i, d})
 	resp := tr.response[0]
 	tr.response = tr.response[1:]
@@ -168,24 +166,21 @@ func TestCompositeRepoResolver(t *testing.T) {
 
 	cr := &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
 
-	dep := &Dependency{
-		ImportPaths: []string{"testi"},
+	dep := &CanticleDependency{
+		Root: "testi",
 	}
-	v, err := cr.ResolveRepo(dep.ImportPaths[0], dep)
+	v, err := cr.ResolveRepo(dep.Root, dep)
 	if err != nil {
 		t.Errorf("CompositeRepoResolver returned error with valid resolve %s", err.Error())
 	}
 	if v != res {
 		t.Errorf("CompositeRepoResolver returned incorrect vcs")
 	}
-	if tr1.resolutions[0].path != dep.ImportPaths[0] {
+	if tr1.resolutions[0].path != dep.Root {
 		t.Errorf("CompositeRepoResolver tr1 bad import path")
 	}
 	if tr1.resolutions[0].dep != dep {
 		t.Errorf("CompositeRepoResolver tr1 bad dep")
-	}
-	if tr2.resolutions[0].path != dep.ImportPaths[0] {
-		t.Errorf("CompositeRepoResolver tr2 bad import path")
 	}
 	if tr2.resolutions[0].dep != dep {
 		t.Errorf("CompositeRepoResolver tr2 bad dep")
@@ -194,7 +189,7 @@ func TestCompositeRepoResolver(t *testing.T) {
 	tr1 = &testResolver{response: []resolve{{nil, errTest}}}
 	tr2 = &testResolver{response: []resolve{{nil, errTest}}}
 	cr = &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
-	v, err = cr.ResolveRepo(dep.ImportPaths[0], dep)
+	v, err = cr.ResolveRepo(dep.Root, dep)
 	if err != ErrorResolutionFailure {
 		t.Errorf("CompositeRepoResolver did not return resolution failure")
 	}
@@ -204,10 +199,10 @@ func TestMemoizedRepoResolver(t *testing.T) {
 	res := &TestVCS{}
 	tr1 := &testResolver{response: []resolve{{res, nil}}}
 	mr := NewMemoizedRepoResolver(tr1)
-	dep := &Dependency{
-		ImportPaths: []string{"testi"},
+	dep := &CanticleDependency{
+		Root: "testi",
 	}
-	v, err := mr.ResolveRepo(dep.ImportPaths[0], dep)
+	v, err := mr.ResolveRepo(dep.Root, dep)
 	if err != nil {
 		t.Errorf("MemoizedRepoResolver returned error %s", err.Error())
 	}
@@ -218,7 +213,7 @@ func TestMemoizedRepoResolver(t *testing.T) {
 		t.Errorf("MemoizedRepoResolver did not call tr1 only once")
 	}
 
-	v, err = mr.ResolveRepo(dep.ImportPaths[0], dep)
+	v, err = mr.ResolveRepo(dep.Root, dep)
 	if err != nil {
 		t.Errorf("MemoizedRepoResolver returned error %s", err.Error())
 	}
@@ -304,19 +299,13 @@ func TestLocalVCS(t *testing.T) {
 	}
 	defer os.RemoveAll(testHome)
 
-	testDest, err := ioutil.TempDir("", "cant-test-dest")
-	if err != nil {
-		t.Fatalf("Error creating tempdir: %s", err.Error())
-	}
-	defer os.RemoveAll(testDest)
-
 	pkgname := "test.com/test"
 	childpkg := "test.com/test/child"
 	if err := os.MkdirAll(PackageSource(testHome, childpkg), 0755); err != nil {
 		t.Fatalf("Error creating tempdir: %s", err.Error())
 	}
 
-	v := NewLocalVCS(childpkg, pkgname, testHome, testDest, TestVCSCmd)
+	v := NewLocalVCS(childpkg, pkgname, testHome, TestVCSCmd)
 	rev, err := v.GetRev()
 	if err != nil {
 		t.Fatalf("Local vcs should not return error with no rev command")
@@ -326,7 +315,7 @@ func TestLocalVCS(t *testing.T) {
 	}
 
 	RevCmds[TestRevCmd.Name] = TestRevCmd
-	v = NewLocalVCS(childpkg, pkgname, testHome, testDest, TestVCSCmd)
+	v = NewLocalVCS(childpkg, pkgname, testHome, TestVCSCmd)
 	rev, err = v.GetRev()
 	if err != nil {
 		t.Errorf("Error getting valid rev: %s", err.Error())
@@ -338,14 +327,6 @@ func TestLocalVCS(t *testing.T) {
 	if err := v.Create(""); err != nil {
 		t.Errorf("Error running create command with no revision: %s", err.Error())
 	}
-	s, err := os.Stat(PackageSource(testDest, childpkg))
-	if err != nil {
-		t.Fatalf("Create with no revision err stating created dir: %s", err.Error())
-	}
-	if !s.IsDir() {
-		t.Errorf("Created package was a file not a dir")
-	}
-
 	if err = v.SetRev("testrev"); err != nil {
 		t.Errorf("Error setting rev to testrev: %s", err.Error())
 	}

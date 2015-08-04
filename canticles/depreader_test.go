@@ -1,12 +1,10 @@
 package canticles
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -26,12 +24,13 @@ func TestReadCanticleDependencies(t *testing.T) {
 	if len(deps) != 1 {
 		t.Errorf("ReadCanticleDependencies returned unexpected number of deps %d", len(deps))
 	}
-	expected := &Dependency{
-		ImportPaths: []string{"golang.org/x/tools/go/vcs"},
-		Revision:    "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753",
+	expected := &CanticleDependency{
+		Revision:   "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753",
+		SourcePath: "https://go.googlesource.com/tools",
+		Root:       "golang.org/x/tools",
 	}
-	if !reflect.DeepEqual(expected.ImportPaths, deps["golang.org/x/tools"].ImportPaths) {
-		t.Errorf("Error expected importpaths: %v != %v", expected.ImportPaths, deps["golang.org/x/tools"].ImportPaths)
+	if !reflect.DeepEqual(expected, deps[0]) {
+		t.Errorf("Error reading cant deps: %v != %v", expected, deps[0])
 	}
 
 	// Not so happy path
@@ -39,15 +38,13 @@ func TestReadCanticleDependencies(t *testing.T) {
 	if err == nil {
 		t.Errorf("ReadCanticleDependencies returned nil error loading invalid path")
 	}
-	if deps == nil {
-		t.Errorf("ReadCanticleDependencies should never return nil deps")
-	}
 	if len(deps) != 0 {
 		t.Errorf("ReadCanticleDependencies returned non zero length deps loading invalid path")
 	}
 }
 
-func TestReadAllCantDeps(t *testing.T) {
+/*
+func TestReadAllDeps(t *testing.T) {
 	dir, err := ioutil.TempDir("", "cant-test")
 	if err != nil {
 		t.Fatalf("Could not create tmp directory with err %s", err.Error())
@@ -65,14 +62,12 @@ func TestReadAllCantDeps(t *testing.T) {
 
 	// Add Canticle files
 	tragical := &Dependency{
-		ImportPaths: []string{"tragical"},
-		Root:        "tragic.com/tragical",
-		Revision:    "Oedipus",
+		Root:     "tragic.com/tragical",
+		Revision: "Oedipus",
 	}
 	cubicle := &Dependency{
-		ImportPaths: []string{"cubicle"},
-		Root:        "hell.com/cubicle",
-		Revision:    "hell",
+		Root:     "hell.com/cubicle",
+		Revision: "hell",
 	}
 	fascicle := &Dependency{
 		Root:     "elsewhere.com/fascicle",
@@ -227,12 +222,12 @@ func TestReadRemoteDependencies(t *testing.T) {
 		t.Errorf("ReadRemoteDependencies returned non zero length deps loading invalid path")
 	}
 }
-
+*/
 func TestReadDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.ReadRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -249,7 +244,7 @@ func TestReadDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = dr.ReadRemoteDependencies("github.comcast.com/viper-cog/nothere")
+	deps, err = dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadRemoteDependencies returned nil error loading invalid path")
 	}
@@ -279,7 +274,7 @@ func TestReadDependencies(t *testing.T) {
 
 	// Test ourselves
 	dr.Gopath = testHome
-	deps, err = dr.ReadRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err = dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
