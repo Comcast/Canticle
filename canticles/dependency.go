@@ -4,6 +4,8 @@ import "fmt"
 
 // A Dependency defines all information about this package.
 type Dependency struct {
+	// ImportPath for this string as it would appear in a go file.
+	ImportPath string
 	// ImportedFrom is a list of packages which import
 	// this dependency.
 	ImportedFrom StringSet
@@ -11,8 +13,6 @@ type Dependency struct {
 	Imports StringSet
 	// Attempt to read the package caused an error.
 	Err error
-	// ImportPath for this string as it would appear in a go file.
-	ImportPath string
 }
 
 func NewDependency(importPath string) *Dependency {
@@ -82,6 +82,7 @@ type CanticleDependency struct {
 	Root string
 	// Revision is the VCS specific commit id
 	Revision string `json:",omitempty"`
-	// All will pull all deps of the related package (not just the import tree).
+	// All means walks this VCS from the root for nonhidden files. This will save and
+	// fetch the subdirs of package.
 	All bool `json:",omitempty"`
 }

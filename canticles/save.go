@@ -97,7 +97,7 @@ func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySo
 func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 	LogVerbose("Reading deps for repos in path %+v", gopath)
 	reader := &DepReader{Gopath: gopath}
-	ds := NewDependencySaver(reader.ReadAllDeps, gopath)
+	ds := NewDependencySaver(reader.AllDeps, gopath, path)
 	dw := NewDependencyWalker(ds.PackagePaths, ds.SavePackageDeps)
 	if err := dw.TraverseDependencies(path); err != nil {
 		return nil, fmt.Errorf("cant read path dep tree %s %s", path, err.Error())

@@ -1,6 +1,7 @@
 package canticles
 
-/*
+import "testing"
+
 type TestDepRead struct {
 	Deps []string
 	Err  error
@@ -118,6 +119,43 @@ func TestTraverseDependencies(t *testing.T) {
 		t.Errorf("Error loading invvalid pkg %s", err.Error())
 	}
 	CheckResult(t, "ChildErrorReader", ChildErrorReaderResult, tw.calls)
+}
+
+/*
+type TestVCSResolve struct {
+	V   VCS
+	Err error
+}
+
+type TestResolver struct {
+	ResolvePaths map[string]*TestVCSResolve
+}
+
+func (tr *TestResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+	r := tr.ResolvePaths[importPath]
+	return r.V, r.Err
+}
+
+func TestDependencyLoader(t *testing.T) {
+	testHome, err := ioutil.TempDir("", "cant-test")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testHome)
+
+	v := &TestVCS{}
+	v2 := &TestVCS{}
+	tr := &TestResolver{
+		ResolvePaths: map[string]*TestVCSResolve{
+			"testpkg": &TestVCSResolve{
+				V: v,
+			},
+			"root/import": &TestVCSResolve{
+				V: v2,
+			},
+		},
+	}
+	dl := NewDependencyLoader(tr, testDepReader, "testpath")
 }
 
 type TestCantRead struct {

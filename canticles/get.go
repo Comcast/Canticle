@@ -2,6 +2,7 @@ package canticles
 
 import (
 	"flag"
+	"fmt"
 	"log"
 )
 
@@ -65,26 +66,25 @@ func (g *Get) Run(args []string) {
 // GetPackage fetches a package and all of it dependencies to either
 // the buildroot or the gopath.
 func (g *Get) GetPackage(pkg string) error {
-	/*
-		LogVerbose("Fetching package %+v", pkg)
-		gopath := EnvGoPath()
-		// Setup our resolvers, loaders, and walkers
-		resolvers := []RepoResolver{
-			&LocalRepoResolver{LocalPath: gopath},
-			&RemoteRepoResolver{gopath},
-			&DefaultRepoResolver{gopath},
-		}
-		resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
-		depReader := &DepReader{gopath}
-		dl := NewDependencyLoader(resolver, depReader.ReadAllDeps, gopath)
-		//dw := NewDependencyWalker(depReader.ReadRemoteDependencies, dl.FetchUpdatePackage)
+	LogVerbose("Fetching package %+v", pkg)
+	gopath := EnvGoPath()
+	// Setup our resolvers, loaders, and walkers
+	resolvers := []RepoResolver{
+		&LocalRepoResolver{LocalPath: gopath},
+		&RemoteRepoResolver{gopath},
+		&DefaultRepoResolver{gopath},
+	}
+	resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
+	depReader := &DepReader{gopath}
+	dl := NewDependencyLoader(resolver, depReader, gopath, PackageSource(gopath, pkg))
+	dw := NewDependencyWalker(depReader.AllImports, dl.FetchUpdatePath)
 
-		// And walk it
-		err := dw.TraverseDependencies(pkg)
-		if err != nil {
-			return fmt.Errorf("cant fetch packages %s", err.Error())
-		}
-		LogVerbose("Package %+v has deps: %+v", pkg, dl.FetchedDeps())
-	*/
+	// And walk it
+	err := dw.TraverseDependencies(pkg)
+	if err != nil {
+		return fmt.Errorf("cant fetch packages %s", err.Error())
+	}
+	//LogVerbose("Package %+v has deps: %+v", pkg, dl.FetchedDeps())
+
 	return nil
 }
