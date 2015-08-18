@@ -1,6 +1,7 @@
 package canticles
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -129,10 +130,29 @@ func LogVerbose(fmtString string, args ...interface{}) {
 	}
 }
 
+// Quite being true prevents LogWarn from printing.
+var Quite = false
+
+// LogWarn will print lines unless quite is true
+func LogWarn(fmtString string, args ...interface{}) {
+	if Quite {
+		return
+	}
+	log.Printf(fmtString, args...)
+}
+
 type StringSet map[string]bool
 
 func NewStringSet() StringSet {
 	return make(map[string]bool)
+}
+
+func (ss StringSet) String() string {
+	keys := make([]string, 0, len(ss))
+	for k, _ := range ss {
+		keys = append(keys, k)
+	}
+	return fmt.Sprintf("%+v", keys)
 }
 
 // Add strings to set

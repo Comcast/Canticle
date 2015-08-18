@@ -9,11 +9,11 @@ import (
 	"testing"
 )
 
-func TestReadCanticleDependencies(t *testing.T) {
+func TestCanticleDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.ReadCanticleDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.CanticleDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading valid Canticle file %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -34,7 +34,7 @@ func TestReadCanticleDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = dr.ReadCanticleDependencies("github.comcast.com/viper-cog/nothere")
+	deps, err = dr.CanticleDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadCanticleDependencies returned nil error loading invalid path")
 	}
@@ -227,7 +227,7 @@ func TestReadDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.GoRemoteDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
@@ -244,7 +244,7 @@ func TestReadDependencies(t *testing.T) {
 	}
 
 	// Not so happy path
-	deps, err = dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/nothere")
+	deps, err = dr.GoRemoteDependencies("github.comcast.com/viper-cog/nothere")
 	if err == nil {
 		t.Errorf("ReadRemoteDependencies returned nil error loading invalid path")
 	}
@@ -274,7 +274,7 @@ func TestReadDependencies(t *testing.T) {
 
 	// Test ourselves
 	dr.Gopath = testHome
-	deps, err = dr.ReadGoRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err = dr.GoRemoteDependencies("github.comcast.com/viper-cog/cant")
 	if err != nil {
 		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
 	}
