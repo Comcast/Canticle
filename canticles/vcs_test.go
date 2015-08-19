@@ -194,7 +194,7 @@ func TestCompositeRepoResolver(t *testing.T) {
 	tr2 = &testResolver{response: []resolve{{nil, errTest}}}
 	cr = &CompositeRepoResolver{[]RepoResolver{tr1, tr2}}
 	v, err = cr.ResolveRepo(dep.Root, dep)
-	if err != ErrorResolutionFailure {
+	if re := ResolutionFailureErr(err); re == nil {
 		t.Errorf("CompositeRepoResolver did not return resolution failure")
 	}
 }
