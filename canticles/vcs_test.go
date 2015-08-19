@@ -142,6 +142,10 @@ func (v *TestVCS) GetRoot() string {
 	return v.Root
 }
 
+func (v *TestVCS) GetBranch() (string, error) {
+	return v.Rev, v.Err
+}
+
 type testResolve struct {
 	path string
 	dep  *CanticleDependency
