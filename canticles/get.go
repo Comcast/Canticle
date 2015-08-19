@@ -84,7 +84,6 @@ func (g *Get) GetPackage(pkg string) error {
 	if err != nil {
 		return fmt.Errorf("cant fetch packages %s", err.Error())
 	}
-	//LogVerbose("Package %+v has deps: %+v", pkg, dl.FetchedDeps())
 
 	return nil
 }

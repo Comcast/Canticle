@@ -378,9 +378,39 @@ func (pv *PackageVCS) GetBranch() (string, error) {
 	return "", errors.New("package VCS currently does not support GetBranch")
 }
 
-// ErrorResolutionFailure will be returned if a RepoResolver could not
+// A ResolutionFailureError contains status as to whether this is a resolution failure
+// or of some other type
+type ResolutionFailureError struct {
+	Err error
+	Pkg string
+	VCS string
+}
+
+// A NewResolutionFailureError with the pkg and vcs passed in
+func NewResolutionFailureError(pkg, vcs string) *ResolutionFailureError {
+	return &ResolutionFailureError{
+		Err: fmt.Errorf("pkg %s could not be resolved by vcs %s", pkg, vcs),
+		Pkg: pkg,
+		VCS: vcs,
+	}
+}
+
+// Error message attached to this vcs error
+func (re ResolutionFailureError) Error() string {
+	return re.Err.Error()
+}
+
+// ResolutionFailureErr will return non nil if a RepoResolver could not
 // resolve a VCS.
-var ErrorResolutionFailure = errors.New("discovery failed")
+func ResolutionFailureErr(err error) *ResolutionFailureError {
+	if err == nil {
+		return nil
+	}
+	if re, ok := err.(*ResolutionFailureError); ok {
+		return re
+	}
+	return nil
+}
 
 // RepoResolver provides the mechanisms for resolving a VCS from an
 // importpath and sourceUrl.
@@ -448,7 +478,7 @@ func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *CanticleDepend
 	LogVerbose("Attempting to use default resolver for url: %s", resolvePath)
 	v := GuessVCS(resolvePath)
 	if v == nil {
-		return nil, ErrorResolutionFailure
+		return nil, NewResolutionFailureError(importPath, "remote")
 	}
 
 	root := dep.Root
@@ -497,7 +527,7 @@ func (lr *LocalRepoResolver) ResolveRepo(pkg string, dep *CanticleDependency) (V
 		return v, nil
 	default:
 		LogVerbose("Could not resolve local vcs for package: %s", fullPath)
-		return nil, ErrorResolutionFailure
+		return nil, NewResolutionFailureError(pkg, "local")
 	}
 }
 
@@ -508,7 +538,7 @@ type CompositeRepoResolver struct {
 }
 
 // ResolveRepo for the composite attempts its sub Resolvers in order
-// ignoring any errors. If all resolvers fail ErrorResolutionFailure
+// ignoring any errors. If all resolvers fail a ResolutionFailureError
 // will be returned.
 func (cr *CompositeRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	for _, r := range cr.Resolvers {
@@ -517,7 +547,7 @@ func (cr *CompositeRepoResolver) ResolveRepo(importPath string, dep *CanticleDep
 			return vcs, nil
 		}
 	}
-	return nil, ErrorResolutionFailure
+	return nil, NewResolutionFailureError(importPath, "composite")
 }
 
 type resolve struct {
