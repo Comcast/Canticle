@@ -138,7 +138,7 @@ func LogWarn(fmtString string, args ...interface{}) {
 	if Quite {
 		return
 	}
-	log.Printf(fmtString, args...)
+	log.Printf("WARN: "+fmtString, args...)
 }
 
 type StringSet map[string]bool

@@ -13,7 +13,8 @@ type Save struct {
 	flags    *flag.FlagSet
 	Verbose  bool
 	DryRun   bool
-	Force    bool
+	OnDisk   bool
+	Branches bool
 	Resolver ConflictResolver
 }
 
@@ -24,8 +25,9 @@ func NewSave() *Save {
 		Resolver: &PromptResolution{},
 	}
 	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff")
-	f.BoolVar(&s.Verbose, "f", false, "Force a save even when there are missing deps or version conflicts.")
+	f.BoolVar(&s.OnDisk, "ondisk", false, "Save the revisions and sources present on disk ignoring all other Canticle files.")
 	f.BoolVar(&s.DryRun, "d", false, "Don't save the deps, just print them.")
+	f.BoolVar(&s.Branches, "b", false, "Save branches for the current projects, not revisions.")
 	return s
 }
 
@@ -39,7 +41,7 @@ var SaveCommand = &Command{
 
 Specify -v to print out a verbose set of operations instead of just errors.
 
-Specify -f to force a save even with missing dependencies or conflicting versions.`,
+Specify -ondisk to use on disk revisions and sources and do no conflict resolution.`,
 	Flags: save.flags,
 	Cmd:   save,
 }
@@ -50,6 +52,9 @@ func (s *Save) Run(args []string) {
 		Verbose = true
 	}
 	defer func() { Verbose = false }()
+	if s.OnDisk {
+		s.Resolver = &PreferLocalResolution{}
+	}
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -88,6 +93,7 @@ func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySo
 		Gopath:   gopath,
 		RootPath: path,
 		Resolver: repoResolver,
+		Branches: s.Branches,
 	}
 	return sourceResolver.ResolveSources(deps)
 }

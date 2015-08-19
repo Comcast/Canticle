@@ -19,6 +19,7 @@ type VCS interface {
 	Create(rev string) error
 	SetRev(rev string) error
 	GetRev() (string, error)
+	GetBranch() (string, error)
 	GetSource() (string, error)
 	GetRoot() string
 }
@@ -146,6 +147,43 @@ var (
 		SvnRemoteCmd.Name: SvnRemoteCmd,
 		HgRemoteCmd.Name:  HgRemoteCmd,
 	}
+
+	// GitBranchCmd is used to list of the current branch (if present)
+	GitBranchCmd = &VCSCmd{
+		Name:       "Git",
+		Cmd:        "git",
+		Args:       []string{"symbolic-ref", "--short", "HEAD"},
+		ParseRegex: regexp.MustCompile(`(.+)`),
+	}
+	// HgBranchCmd is used to list of the current branch (if present)
+	HgBranchCmd = &VCSCmd{
+		Name:       "Mercurial",
+		Cmd:        "hg",
+		Args:       []string{"id", "-b"},
+		ParseRegex: regexp.MustCompile(`(.+)`),
+	}
+	// SvnBranchCmd is used to list of the current branch (if present)
+	SvnBranchCmd = &VCSCmd{
+		Name:       "Subversion",
+		Cmd:        "svn",
+		Args:       []string{"info"},
+		ParseRegex: regexp.MustCompile(`^URL: (.+)$`),
+	}
+	// BzrBranchCmd is used to list of the current branch (if present)
+	BzrBranchCmd = &VCSCmd{
+		Name:       "Bazaar",
+		Cmd:        "bzr",
+		Args:       []string{"version-info"},
+		ParseRegex: regexp.MustCompile(`branch-nick: (.+)`),
+	}
+	// RemoteCmds is a map of cmd (git, svn, etc.) to
+	// the cmd to parse its revision.
+	BranchCmds = map[string]*VCSCmd{
+		GitBranchCmd.Name: GitBranchCmd,
+		SvnBranchCmd.Name: SvnBranchCmd,
+		HgBranchCmd.Name:  HgBranchCmd,
+		BzrBranchCmd.Name: BzrBranchCmd,
+	}
 )
 
 // A LocalVCS uses packages and version control systems available at a
@@ -157,6 +195,7 @@ type LocalVCS struct {
 	Cmd           *vcs.Cmd
 	CurrentRevCmd *VCSCmd // CurrentRevCommand to check the current revision for sourcepath.
 	RemoteCmd     *VCSCmd // RemoteCmd to obtain the upstream (remote) for a repo
+	BranchCmd     *VCSCmd //BranchCmd to obtains the current branch if on one
 }
 
 // NewLocalVCS returns a a LocalVCS with CurrentRevCmd initialized
@@ -169,6 +208,7 @@ func NewLocalVCS(pkg, root, srcPath string, cmd *vcs.Cmd) *LocalVCS {
 		Cmd:           cmd,
 		CurrentRevCmd: RevCmds[cmd.Name],
 		RemoteCmd:     RemoteCmds[cmd.Name],
+		BranchCmd:     BranchCmds[cmd.Name],
 	}
 }
 
@@ -186,6 +226,9 @@ func (lv *LocalVCS) SetRev(rev string) error {
 		return nil
 	}
 	PatchGitVCS(lv.Cmd)
+	if err := lv.Cmd.Download(PackageSource(lv.SrcPath, lv.Root)); err != nil {
+		return err
+	}
 	return lv.Cmd.TagSync(PackageSource(lv.SrcPath, lv.Root), rev)
 }
 
@@ -212,6 +255,12 @@ func (lv *LocalVCS) GetSource() (string, error) {
 // GetRoot on a LocalVCS will return PackageName for SrcPath
 func (lv *LocalVCS) GetRoot() string {
 	return lv.Root
+}
+
+// GetBranch on a LocalVCS will return the branch (if any) for the
+// current local repo. If none GetBranch will return an error.
+func (lv *LocalVCS) GetBranch() (string, error) {
+	return lv.BranchCmd.Exec(PackageSource(lv.SrcPath, lv.Root))
 }
 
 // VCSType represents a prefix to look for, a scheme to ping a path
@@ -301,6 +350,9 @@ func (pv *PackageVCS) SetRev(rev string) error {
 	defer restoreWD(pv.cwd)
 	v := pv.Repo.VCS
 	PatchGitVCS(v)
+	if err := v.Download(pv.Repo.Root); err != nil {
+		return err
+	}
 	return v.TagSync(pv.Repo.Root, rev)
 }
 
@@ -318,6 +370,12 @@ func (pv *PackageVCS) GetRoot() string {
 // GetSource returns the pv.Repo.Repo
 func (pv *PackageVCS) GetSource() (string, error) {
 	return pv.Repo.Repo, nil
+}
+
+// GetBranch does not work on remote VCS for now and will return an
+// error.
+func (pv *PackageVCS) GetBranch() (string, error) {
+	return "", errors.New("package VCS currently does not support GetBranch")
 }
 
 // ErrorResolutionFailure will be returned if a RepoResolver could not

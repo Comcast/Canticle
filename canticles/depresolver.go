@@ -60,6 +60,7 @@ func (ds *DependencySources) String() string {
 type SourcesResolver struct {
 	RootPath, Gopath string
 	Resolver         RepoResolver
+	Branches         bool
 }
 
 func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources, error) {
@@ -81,17 +82,27 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 			LogWarn("Skipping dep %+v, %s", dep, err.Error())
 			continue
 		}
+
 		root := vcs.GetRoot()
 		rootSrc := PackageSource(sr.Gopath, root)
 		if rootSrc == sr.RootPath || PathIsChild(rootSrc, sr.RootPath) {
-			LogWarn("Skipping pkg %s since its at our save level", sr.RootPath)
+			LogVerbose("Skipping pkg %s since its vcs is at our save level", sr.RootPath)
 			continue
 		}
 		source := NewDependencySource(root)
 
-		rev, err := vcs.GetRev()
-		if err != nil {
-			return nil, fmt.Errorf("cant get revision from vcs at %s %s", root, err.Error())
+		var rev string
+		if sr.Branches {
+			rev, err = vcs.GetBranch()
+			if err != nil {
+				LogWarn("No branch from vcs at %s %s", root, err.Error())
+			}
+		}
+		if !sr.Branches || err != nil {
+			rev, err = vcs.GetRev()
+			if err != nil {
+				return nil, fmt.Errorf("cant get revision from vcs at %s %s", root, err.Error())
+			}
 		}
 		source.Revisions.Add(rev)
 		source.OnDiskRevision = rev
@@ -103,6 +114,7 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 		source.Sources.Add(vcsSource)
 		source.OnDiskSource = vcsSource
 		source.Deps.AddDependency(dep)
+
 		sources.AddSource(source)
 	}
 	return sources, nil
