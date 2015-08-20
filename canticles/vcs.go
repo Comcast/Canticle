@@ -45,6 +45,7 @@ func PatchGitVCS(v *vcs.Cmd) {
 	v.TagLookupCmd = []vcs.TagCmd{
 		{"rev-parse --quiet --verify {tag}", `(\w+)$`},
 	}
+	v.DownloadCmd = "fetch --all"
 }
 
 // A VCSCmd is used to run a VCS command for a repo
@@ -226,8 +227,24 @@ func (lv *LocalVCS) SetRev(rev string) error {
 		return nil
 	}
 	PatchGitVCS(lv.Cmd)
-	if err := lv.Cmd.Download(PackageSource(lv.SrcPath, lv.Root)); err != nil {
+	src := PackageSource(lv.SrcPath, lv.Root)
+	tags, err := lv.Cmd.Tags(src)
+	if err != nil {
 		return err
+	}
+	contains := false
+	for _, tag := range tags {
+		if tag == rev {
+			contains = true
+			break
+		}
+	}
+	// If we don't have the specified revision locally, attempt
+	// to pull any remote change sets
+	if !contains {
+		if err := lv.Cmd.Download(src); err != nil {
+			return err
+		}
 	}
 	return lv.Cmd.TagSync(PackageSource(lv.SrcPath, lv.Root), rev)
 }
