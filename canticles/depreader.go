@@ -79,7 +79,7 @@ func (dr *DepReader) AllDeps(path string) (Dependencies, error) {
 	if err != nil {
 		return allDeps, err
 	}
-	// Attemp to read its canticle deps
+	// Attempt to read its canticle deps
 	cdeps, err := dr.CanticleDependencies(pname)
 	if err != nil && !os.IsNotExist(err) {
 		return allDeps, err
