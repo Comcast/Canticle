@@ -82,7 +82,6 @@ func (dw *DependencyWalker) TraverseDependencies(pkg string) error {
 
 // A DepReader reads the set of deps for a package
 type DependencyReader interface {
-	CanticleDependencies(importPath string) ([]*CanticleDependency, error)
 	AllDeps(importPath string) (Dependencies, error)
 }
 
@@ -90,7 +89,6 @@ type DependencyReader interface {
 // dependency using the specified resolver.
 type DependencyLoader struct {
 	deps      Dependencies
-	cdeps     map[string]*CanticleDependency
 	gopath    string
 	root      string
 	resolver  RepoResolver
@@ -102,7 +100,6 @@ type DependencyLoader struct {
 func NewDependencyLoader(resolver RepoResolver, depReader DependencyReader, gopath, root string) *DependencyLoader {
 	return &DependencyLoader{
 		deps:      NewDependencies(),
-		cdeps:     make(map[string]*CanticleDependency),
 		depReader: depReader,
 		resolver:  resolver,
 		gopath:    gopath,
@@ -114,93 +111,80 @@ func NewDependencyLoader(resolver RepoResolver, depReader DependencyReader, gopa
 // defined by the Dependency or if no version is defined will use
 // the VCS default.
 func (dl *DependencyLoader) FetchUpdatePath(path string) error {
-	LogVerbose("DepLoader handling path: %s", path)
+	/*
+		LogVerbose("DepLoader handling path: %s", path)
 
-	// See if this path is on disk
-	fetch := false
-	s, err := os.Stat(path)
-	switch {
-	case err != nil && os.IsNotExist(err):
-		fetch = true
-	case err != nil:
-		fmt.Errorf("cant fetch package error when stating import path %s", err.Error())
-	case s != nil && !s.IsDir():
-		return fmt.Errorf("cant fetch pkg for path %s is a file not a directory", path)
-	}
+		// See if this path is on disk, if so we don't need to fetch anything
+		ondisk := true
+		s, err := os.Stat(path)
+		switch {
+		case err != nil && os.IsNotExist(err):
+			ondisk = false
+		case err != nil:
+			fmt.Errorf("cant fetch package error when stating import path %s", err.Error())
+		case s != nil && !s.IsDir():
+			return fmt.Errorf("cant fetch pkg for path %s is a file not a directory", path)
+		}
+		if ondisk {
+			return nil
+		}
 
-	// Get the packagename
-	pkg, err := PackageName(dl.gopath, path)
-	if err != nil {
-		return err
-	}
-
-	// Fetch or update the package
-	// Resolve the vcs
-	cdep := dl.cdeps[pkg]
-	vcs, err := dl.resolver.ResolveRepo(pkg, cdep)
-	if err != nil {
-		return fmt.Errorf("resolving package %s version control %s", pkg, err.Error())
-	}
-
-	// If this is a new dep (from a non saved source)
-	// fill out its details
-	if cdep == nil {
-		sauce, err := vcs.GetSource()
+		// Otherwise
+		// Get the packagename
+		pkg, err := PackageName(dl.gopath, path)
 		if err != nil {
 			return err
 		}
 
-		cdep = &CanticleDependency{
-			Root:       vcs.GetRoot(),
-			SourcePath: sauce,
+		// Resolve the vcs using our cdep is available
+		cdep := dl.cdeps[pkg]
+		LogVerbose("Resolving repo for %s ondisk %v", pkg, ondisk)
+		vcs, err := dl.resolver.ResolveRepo(pkg, cdep)
+		if err != nil {
+			return fmt.Errorf("%s version control %s", pkg, err.Error())
 		}
-		dl.cdeps[pkg] = cdep
-	}
 
-	// Fetch or set
-	if fetch {
-		err = dl.fetchPackage(vcs, cdep)
-	} else {
-		err = dl.setRevision(vcs, cdep)
-	}
-	if err != nil {
-		return fmt.Errorf("cant fetch package %s %s", pkg, err.Error())
-	}
+		// If this is a new dep (from a non saved source)
+		// fill out its details
+		if cdep == nil {
+			sauce, err := vcs.GetSource()
+			if err != nil {
+				return err
+			}
 
-	// Load the canticle deps file of our package and save it, not
-	// having the file is not an error.
-	cdeps, err := dl.depReader.CanticleDependencies(pkg)
-	switch {
-	case err != nil && !os.IsNotExist(err):
-		return fmt.Errorf("cant fetch package %s couldn't read cant file %s", pkg, err.Error())
-	case err != nil && os.IsNotExist(err):
+			cdep = &CanticleDependency{
+				Root:       vcs.GetRoot(),
+				SourcePath: sauce,
+			}
+			dl.cdeps[pkg] = cdep
+		}
+
+		// Fetch the package
+		if err := dl.fetchPackage(vcs, cdep); err != nil {
+			return fmt.Errorf("cant fetch package %s %s", pkg, err.Error())
+		}
+
+		// Load all the dep for this file directly
+		deps, err := dl.depReader.AllDeps(pkg)
+		if err != nil {
+			return fmt.Errorf("cant fetch package %s couldn't read deps %s", pkg, err.Error())
+		}
+		LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
+		dl.deps.AddDependencies(deps)
+
+		// And all of its cant deps
 		return nil
-	}
-	LogVerbose("Read package canticle %s deps:\n[\n%+v]", pkg, cdeps)
-	for _, pkgDep := range cdeps {
-		if dl.cdeps[pkgDep.Root] == nil {
-			dl.cdeps[pkgDep.Root] = pkgDep
-		}
-	}
-
-	// Load all the dep for this file directly
-	deps, err := dl.depReader.AllDeps(pkg)
-	if err != nil {
-		return fmt.Errorf("cant fetch package %s couldn't read deps %s", pkg, err.Error())
-	}
-	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
-	dl.deps.AddDependencies(deps)
-
+	*/
 	return nil
 }
 
-//
+// PackagePaths determines the set of paths for a package by:
+// Its imports from dl.readDeps.
+// A cdep with All specified as true.
+//   iif a cdep with all is specified a different
+//   reader that recurs subfolders should be used
+// If its a subfolder of our the root, than any subfolders below that
 func (dl *DependencyLoader) PackagePaths(path string) ([]string, error) {
-	// The set of packagepaths for a pkg is determined by:
-	// Its imports from dl.readDeps.
-	// A cdep with All specified as true.
-	//   iif a cdep with all is specified a different
-	//   reader that recurs subfolders should be used
 	var subdirs []string
 	var err error
 	if PathIsChild(dl.root, path) {
@@ -208,7 +192,7 @@ func (dl *DependencyLoader) PackagePaths(path string) ([]string, error) {
 		if err != nil {
 			return []string{}, err
 		}
-		LogVerbose("Package has subdirs %v", subdirs)
+		LogVerbose("Path %s has subdirs %v", path, subdirs)
 	}
 
 	pkg, err := PackageName(dl.gopath, path)
@@ -217,10 +201,8 @@ func (dl *DependencyLoader) PackagePaths(path string) ([]string, error) {
 	}
 
 	deps := dl.deps.Dependency(pkg)
-	for root, cdep := range dl.cdeps {
-		if cdep.All {
-			deps.Imports.Add(root)
-		}
+	if deps != nil {
+		return subdirs, nil
 	}
 	return append(deps.Imports.Array(), subdirs...), nil
 }

@@ -320,6 +320,9 @@ func TestLocalVCS(t *testing.T) {
 
 	RevCmds[TestRevCmd.Name] = TestRevCmd
 	v = NewLocalVCS(childpkg, pkgname, testHome, TestVCSCmd)
+	v.Branches = func(path string) ([]string, error) {
+		return []string{"testrev"}, nil
+	}
 	rev, err = v.GetRev()
 	if err != nil {
 		t.Errorf("Error getting valid rev: %s", err.Error())

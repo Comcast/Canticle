@@ -28,12 +28,9 @@ var get = NewGet()
 
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-source <source>] [-v] [-n] [-l] [package...]",
+	UsageLine:        "get [-v]",
 	ShortDescription: "download dependencies as defined in the Canticle file",
 	LongDescription: `The get command fetches dependencies. When issued locally it looks...
-If get is issued against a package which does not exist it will also be downloaded.
-
-If -source is specified the package will be fetched from this specified vcs repo source.
 
 Specify -v to print out a verbose set of operations instead of just errors.
 
@@ -63,12 +60,17 @@ func (g *Get) Run(args []string) {
 	}
 }
 
+// Psuedocode
+// Load Canticle deps
+// Fetch canticle deps
+// Walk the dep tree and fetch anything else
+// Done
+
 // GetPackage fetches a package and all of it dependencies to either
 // the buildroot or the gopath.
-func (g *Get) GetPackage(pkg string) error {
-	LogVerbose("Fetching package %+v", pkg)
+func (g *Get) GetPackage(path string) error {
+	LogVerbose("Fetching path %+v", path)
 	gopath := EnvGoPath()
-	// Setup our resolvers, loaders, and walkers
 	resolvers := []RepoResolver{
 		&LocalRepoResolver{LocalPath: gopath},
 		&RemoteRepoResolver{gopath},
@@ -76,14 +78,26 @@ func (g *Get) GetPackage(pkg string) error {
 	}
 	resolver := NewMemoizedRepoResolver(&CompositeRepoResolver{resolvers})
 	depReader := &DepReader{gopath}
-	dl := NewDependencyLoader(resolver, depReader, gopath, PackageSource(gopath, pkg))
-	dw := NewDependencyWalker(depReader.AllImports, dl.FetchUpdatePath)
 
-	// And walk it
-	err := dw.TraverseDependencies(pkg)
-	if err != nil {
-		return fmt.Errorf("cant fetch packages %s", err.Error())
+	loader := &CanticleDepLoader{
+		Reader:   depReader,
+		Resolver: resolver,
+		Gopath:   gopath,
 	}
-
+	if err := loader.FetchPath(path); err != nil {
+		return fmt.Errorf("cant load package %s", err.Error())
+	}
 	return nil
+
+	/*
+		// Setup our resolvers, loaders, and walkers
+		dl := NewDependencyLoader(resolver, depReader, gopath, path)
+		dw := NewDependencyWalker(dl.PackagePaths, dl.FetchUpdatePath)
+
+		// And walk it
+		err := dw.TraverseDependencies(path)
+		if err != nil {
+			return fmt.Errorf("cant fetch packages %s", err.Error())
+		}
+	*/
 }

@@ -19,7 +19,7 @@ type Save struct {
 }
 
 func NewSave() *Save {
-	f := flag.NewFlagSet("get", flag.ExitOnError)
+	f := flag.NewFlagSet("save", flag.ExitOnError)
 	s := &Save{
 		flags:    f,
 		Resolver: &PromptResolution{},
@@ -35,7 +35,7 @@ var save = NewSave()
 
 var SaveCommand = &Command{
 	Name:             "save",
-	UsageLine:        "save [-f] [-d] [-v]",
+	UsageLine:        "save [-f] [-ondisk] [-d] [-b]",
 	ShortDescription: "Save the current revision of all dependencies in a Canticle file.",
 	LongDescription: `The save command will save the dependencies for a package into a Canticle file.  If at the src level save the current revision of all packages in belows. All dependencies must be present on disk and in the GOROOT. The generated Canticle file will be saved in the packages root directory.
 
