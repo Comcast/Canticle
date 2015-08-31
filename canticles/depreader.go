@@ -28,36 +28,6 @@ func (dr *DepReader) CanticleDependencies(pkg string) ([]*CanticleDependency, er
 	return deps, nil
 }
 
-/*
-func (dr *DepReader) ReadRecursive(path string) (Dependencies, error) {
-	allDeps := NewDependencies()
-	err := filepath.Walk(PackageSource(dr.Gopath, root), func(p string, f os.FileInfo, err error) error {
-		// Go src dirs don't have dot prefixes
-		if strings.HasPrefix(filepath.Base(p), ".") {
-			if f.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		// We only want to process directories, and ignore files
-		if !f.IsDir() {
-			return nil
-		}
-		deps, err := dr.ReadAllDeps(p)
-		if err != nil {
-			return err
-		}
-		allDeps.AddDependencies(deps)
-		return nil
-
-	})
-	return allDeps, err
-
-}
-*/
 func (dr *DepReader) AllImports(path string) ([]string, error) {
 	deps, err := dr.AllDeps(path)
 	if err != nil {
