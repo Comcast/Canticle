@@ -88,16 +88,4 @@ func (g *Get) GetPackage(path string) error {
 		return fmt.Errorf("cant load package %s", err.Error())
 	}
 	return nil
-
-	/*
-		// Setup our resolvers, loaders, and walkers
-		dl := NewDependencyLoader(resolver, depReader, gopath, path)
-		dw := NewDependencyWalker(dl.PackagePaths, dl.FetchUpdatePath)
-
-		// And walk it
-		err := dw.TraverseDependencies(path)
-		if err != nil {
-			return fmt.Errorf("cant fetch packages %s", err.Error())
-		}
-	*/
 }
