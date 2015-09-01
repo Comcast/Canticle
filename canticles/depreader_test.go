@@ -235,12 +235,16 @@ func TestReadDependencies(t *testing.T) {
 		t.Errorf("ReadRemoteDependencies should never return nil deps")
 		return
 	}
-	if len(deps) != 1 {
+	if len(deps) != 2 {
 		t.Errorf("ReadRemoteDependencies read incorrect number of deps, got %d, expected %d", len(deps), 2)
 	}
-	expected := "github.comcast.com/viper-cog/cant/canticles"
+	expected := "github.comcast.com/viper-cog/cant/buildinfo"
 	if expected != deps[0] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[0], expected)
+	}
+	expected = "github.comcast.com/viper-cog/cant/canticles"
+	if expected != deps[1] {
+		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[1], expected)
 	}
 
 	// Not so happy path
@@ -282,11 +286,15 @@ func TestReadDependencies(t *testing.T) {
 		t.Errorf("ReadRemoteDependencies should never return nil deps")
 		return
 	}
-	if len(deps) != 1 {
+	if len(deps) != 2 {
 		t.Errorf("ReadRemoteDependencies read incorrect number of deps, got %d, expected %d", len(deps), 2)
 	}
-	expected = "github.comcast.com/viper-cog/cant/canticles"
+	expected = "github.comcast.com/viper-cog/cant/buildinfo"
 	if expected != deps[0] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[0], expected)
+	}
+	expected = "github.comcast.com/viper-cog/cant/canticles"
+	if expected != deps[1] {
+		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[1], expected)
 	}
 }
