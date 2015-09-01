@@ -1,6 +1,11 @@
 package canticles
 
-import "testing"
+import (
+	"io/ioutil"
+	"os"
+	"path"
+	"testing"
+)
 
 type TestDepRead struct {
 	Deps []string
@@ -121,7 +126,6 @@ func TestTraverseDependencies(t *testing.T) {
 	CheckResult(t, "ChildErrorReader", ChildErrorReaderResult, tw.calls)
 }
 
-/*
 type TestVCSResolve struct {
 	V   VCS
 	Err error
@@ -131,58 +135,103 @@ type TestResolver struct {
 	ResolvePaths map[string]*TestVCSResolve
 }
 
-func (tr *TestResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
+func (tr *TestResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	r := tr.ResolvePaths[importPath]
 	return r.V, r.Err
 }
 
+type TestDependencyRead struct {
+	Deps Dependencies
+	Err  error
+}
+
+type TestDependencyReader struct {
+	PackageDeps map[string]TestDependencyRead
+}
+
+func (tdr *TestDependencyReader) ReadDependencies(p string) (Dependencies, error) {
+	r := tdr.PackageDeps[p]
+	return r.Deps, r.Err
+}
+
 func TestDependencyLoader(t *testing.T) {
+	// Create our
 	testHome, err := ioutil.TempDir("", "cant-test")
 	if err != nil {
 		t.Fatalf("Error creating tempdir: %s", err.Error())
 	}
 	defer os.RemoveAll(testHome)
-
-	v := &TestVCS{}
-	v2 := &TestVCS{}
-	tr := &TestResolver{
-		ResolvePaths: map[string]*TestVCSResolve{
-			"testpkg": &TestVCSResolve{
-				V: v,
-			},
-			"root/import": &TestVCSResolve{
-				V: v2,
-			},
+	if err := os.MkdirAll(path.Join(testHome, "src", "pkg1", "child"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	pkg1dep := map[string]*Dependency{
+		"pkg1/child": NewDependency("pkg1/child"),
+	}
+	pkg1childdep := map[string]*Dependency{
+		"pkg2/child": NewDependency("pkg2/child"),
+	}
+	deps := &TestDependencyReader{
+		map[string]TestDependencyRead{
+			"pkg1":       TestDependencyRead{pkg1dep, nil},
+			"pkg1/child": TestDependencyRead{pkg1childdep, nil},
+			"pkg2":       TestDependencyRead{NewDependencies(), nil},
+			"pkg2/child": TestDependencyRead{NewDependencies(), nil},
 		},
 	}
-	dl := NewDependencyLoader(tr, testDepReader, "testpath")
-}
 
-type TestCantRead struct {
-	Deps Dependencies
-	Err  error
-}
+	cdeps := []*CanticleDependency{
+		&CanticleDependency{Root: "pkg1"},
+		&CanticleDependency{Root: "pkg2"},
+	}
+	pkg1vcs := &TestVCS{}
+	pkg2vcs := &TestVCS{}
+	tr := &TestResolver{map[string]*TestVCSResolve{
+		"pkg1":       &TestVCSResolve{pkg1vcs, nil},
+		"pkg1/child": &TestVCSResolve{pkg1vcs, nil},
+		"pkg2":       &TestVCSResolve{pkg2vcs, nil},
+		"pkg2/child": &TestVCSResolve{pkg2vcs, nil},
+	}}
+	dl := NewDependencyLoader(tr, deps.ReadDependencies, cdeps, testHome)
 
-type TestCantReader struct {
-	PackageDeps map[string]TestCantRead
-}
+	if err := dl.FetchUpdatePackage("pkg1"); err != nil {
+		t.Errorf("Error fetching pkg1: %s", err.Error())
+	}
+	pkgImports, err := dl.PackageImports("pkg1")
+	if err != nil {
+		t.Errorf("Error getting imports for pkg1: %s", err.Error())
+	}
+	if pkgImports[0] != "pkg1/child" {
+		t.Errorf("Expected pkg1 to have imports pkg1/child got: %s", pkgImports[0])
+	}
+	if pkg1vcs.Created != 0 {
+		t.Errorf("Expected pkg1vcs to have no creates: %d", pkg1vcs.Created)
+	}
+	if err := dl.FetchUpdatePackage("pkg1/child"); err != nil {
+		t.Errorf("Error fetching pkg1: %s", err.Error())
+	}
+	pkgImports, err = dl.PackageImports("pkg1/child")
+	if err != nil {
+		t.Errorf("Error getting imports for pkg1: %s", err.Error())
+	}
+	if pkgImports[0] != "pkg2/child" {
+		t.Errorf("Expected pkg1 to have imports pkg2/child got: %s", pkgImports[0])
+	}
+	if pkg1vcs.Created != 0 {
+		t.Errorf("Expected pkg1vcs to have no creates: %d", pkg1vcs.Created)
+	}
 
-func (tdr *TestCantReader) Read(p string) (Dependencies, error) {
-	r := tdr.PackageDeps[p]
-	return r.Deps, r.Err
-}
+	if err := dl.FetchUpdatePackage("pkg2/child"); err != nil {
+		t.Errorf("Error fetching pkg2: %s", err.Error())
+	}
+	pkgImports, err = dl.PackageImports("pkg2/child")
+	if err != nil {
+		t.Errorf("Error getting imports for pkg2: %s", err.Error())
+	}
+	if len(pkgImports) != 0 {
+		t.Errorf("Expected pkg2 to have no imports pkg2/child got: %d", len(pkgImports))
+	}
+	if pkg2vcs.Created != 1 {
+		t.Errorf("Expected pkg2vcs to have 1 create: %d", pkg2vcs.Created)
+	}
 
-type TestVCSResolve struct {
-	V   VCS
-	Err error
 }
-
-type TestResolver struct {
-	ResolvePaths map[string]*TestVCSResolve
-}
-
-func (tr *TestResolver) ResolveRepo(importPath string, dep *Dependency) (VCS, error) {
-	r := tr.ResolvePaths[importPath]
-	return r.V, r.Err
-}
-*/
