@@ -105,6 +105,8 @@ func NewDependencyLoader(resolver RepoResolver, depReader DependencyReader, cdep
 	}
 }
 
+// TODO: This shares a ton of code with depsaver, look into that
+
 // FetchUpdatePackage will fetch or set the specified path to the version
 // defined by the Dependency or if no version is defined will use
 // the VCS default.
@@ -123,21 +125,20 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	case s != nil && !s.IsDir():
 		return fmt.Errorf("cant fetch pkg for path %s is a file not a directory", path)
 	}
-	if ondisk {
-		return nil
-	}
-
-	// Resolve the vcs using our cdep if available
-	cdep := dl.cdepForPkg(pkg)
-	LogVerbose("Resolving repo for %s ondisk %v", pkg, ondisk)
-	vcs, err := dl.resolver.ResolveRepo(pkg, cdep)
-	if err != nil {
-		return fmt.Errorf("%s version control %s", pkg, err.Error())
-	}
 
 	// Fetch the package
-	if err := dl.fetchPackage(vcs, cdep); err != nil {
-		return fmt.Errorf("cant fetch package %s %s", pkg, err.Error())
+	if !ondisk {
+		// Resolve the vcs using our cdep if available
+		cdep := dl.cdepForPkg(pkg)
+		LogVerbose("Resolving repo for %s ondisk %v path %s", pkg, ondisk, path)
+		vcs, err := dl.resolver.ResolveRepo(pkg, cdep)
+		if err != nil {
+			return fmt.Errorf("%s version control %s", pkg, err.Error())
+		}
+
+		if err := dl.fetchPackage(vcs, cdep); err != nil {
+			return fmt.Errorf("cant fetch package %s %s", pkg, err.Error())
+		}
 	}
 
 	// Load all the deps for this file directly
@@ -146,7 +147,17 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 		return fmt.Errorf("cant fetch package %s couldn't read deps %s", pkg, err.Error())
 	}
 	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
+
+	// Setup oour deps
+	dep := NewDependency(pkg)
+	for _, d := range deps {
+		d.ImportedFrom.Add(pkg)
+	}
 	dl.deps.AddDependencies(deps)
+	for _, pkgDep := range deps {
+		dep.Imports.Add(pkgDep.ImportPath)
+	}
+	dl.deps.AddDependency(dep)
 
 	return nil
 }
@@ -164,7 +175,7 @@ func (dl *DependencyLoader) cdepForPkg(pkg string) *CanticleDependency {
 func (dl *DependencyLoader) PackageImports(pkg string) ([]string, error) {
 	dep := dl.deps.Dependency(pkg)
 	if dep == nil {
-		return []string{}, fmt.Errorf("no dep for %, should not be requested", pkg)
+		return []string{}, fmt.Errorf("no dep for %s, should not be requested", pkg)
 	}
 	return dep.Imports.Array(), nil
 }
