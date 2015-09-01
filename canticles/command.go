@@ -29,9 +29,10 @@ type Command struct {
 
 // Commands is the prebuild list of Canticle commands.
 var Commands = map[string]*Command{
-	"get":    GetCommand,
-	"save":   SaveCommand,
-	"vendor": VendorCommand,
+	"get":        GetCommand,
+	"save":       SaveCommand,
+	"vendor":     VendorCommand,
+	"genversion": GenVersionCommand,
 }
 
 // Usage will print the commands UsageLine and LongDescription and

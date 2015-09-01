@@ -8,6 +8,7 @@ import (
 	"os"
 	"text/template"
 
+	"github.comcast.com/viper-cog/cant/buildinfo"
 	"github.comcast.com/viper-cog/cant/canticles"
 )
 
@@ -27,7 +28,7 @@ func main() {
 	log.SetFlags(0)
 
 	if *versionFlag {
-		b, err := json.MarshalIndent(BuildInfo, "", "    ")
+		b, err := json.MarshalIndent(buildinfo.GetBuildInfo(), "", "    ")
 		if err != nil {
 			log.Fatalf("Error marshaling own buildinfo!: %s", err.Error())
 		}
