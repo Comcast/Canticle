@@ -2,7 +2,7 @@ package canticles
 
 import (
 	"encoding/json"
-	"io"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -23,42 +23,46 @@ func (b *BuildInfo) DepString() string {
 	return string(s)
 }
 
-func (b *BuildInfo) WriteGoFile(w io.Writer) error {
-	return BuildInfoTemplate.Execute(w, b)
+func (b *BuildInfo) WriteFiles(dir string) error {
+	pkgdir := path.Join(dir, "buildinfo")
+	if err := os.MkdirAll(pkgdir, 0755); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path.Join(pkgdir, "buildinfo.go"), []byte(BuildInfoGoFile), 0644); err != nil {
+		return err
+	}
+	f, err := os.Create(path.Join(pkgdir, "info.go"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return BuildInfoTemplate.Execute(f, b)
 }
 
-func NewBuildInfo(gopath, pkg string) (*BuildInfo, error) {
+func NewBuildInfo(rev string, deps []*CanticleDependency) (*BuildInfo, error) {
 	var bi BuildInfo
+	bi.Revision = rev
 
-	// Decode our canticle file as a raw json message so we can embed it
-	var j json.RawMessage
-	f, err := os.Open(path.Join(PackageSource(gopath, pkg), "Canticle"))
+	// Encode our deps to place be placed
+	msg, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	d := json.NewDecoder(f)
-	if err := d.Decode(&j); err != nil {
+	// Decode our canticle file as a raw json message so we can embed it
+	var j json.RawMessage
+	if err := json.Unmarshal(msg, &j); err != nil {
 		return nil, err
 	}
 	bi.CanticleDeps = &j
 
-	// Grab our version info
-	r := &LocalRepoResolver{LocalPath: gopath}
-	v, err := r.ResolveRepo(pkg, nil)
-	if err != nil {
-		return nil, err
-	}
-	if bi.Revision, err = v.GetRev(); err != nil {
-		return nil, err
-	}
+	// Add the other fields
 	u, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
-
 	bi.BuildUser = u.Username
+
 	if bi.BuildHost, err = os.Hostname(); err != nil {
 		return nil, err
 	}
@@ -68,27 +72,44 @@ func NewBuildInfo(gopath, pkg string) (*BuildInfo, error) {
 	return &bi, nil
 }
 
-var BuildInfoTemplate = template.Must(template.New("version").Parse(`
-package main
+var BuildInfoGoFile = `
+// Package buildinfo is GENERATED CODE from the Canticle build tool,
+// you may check this file in so build can happen without
+// genversion. DO NOT CHECK IN info.go in this package.
+package buildinfo
 
 import "encoding/json"
 
-// This is GENERATED CODE from the Canticle build tool at build time
-var (
-	CanticleDeps = json.RawMessage(` + "`{{.DepString}}`" + `)
-	BuildInfo  = struct {
-		BuildTime    string
-		BuildUser    string
-		BuildHost    string
-		Revision     string
-		CanticleDeps *json.RawMessage
-        }{
+// BuildInfo contains the deps of this as well as information about
+// when genversion was called.
+type BuildInfo struct {
+	BuildTime    string
+	BuildUser    string
+	BuildHost    string
+        Revision     string
+	CanticleDeps *json.RawMessage
+}
+
+var buildInfo = &BuildInfo{}
+
+// GetBuildInfo returns the information saved by cant genversion.
+func GetBuildInfo() *BuildInfo {
+        return buildInfo
+}`
+
+var BuildInfoTemplate = template.Must(template.New("version").Parse(`
+package buildinfo
+
+import "encoding/json"
+
+// This is GENERATED CODE, DO NOT CHECK THIS IN
+func init() {
+	CanticleDeps := json.RawMessage(` + "`{{.DepString}}`" + `)
+	buildInfo = &BuildInfo{
                 "{{.BuildTime}}",
 	        "{{.BuildUser}}",
                 "{{.BuildHost}}",
                 "{{.Revision}}",
                 &CanticleDeps,
         }
-)
-
-`))
+}`))
