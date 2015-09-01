@@ -65,7 +65,6 @@ type SourcesResolver struct {
 
 func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources, error) {
 	sources := NewDependencySources(len(deps))
-	LogWarn("Resolving version control systems for deps")
 	for _, dep := range deps {
 		LogVerbose("\tFinding source for %s", dep.ImportPath)
 		// If we already have a source
