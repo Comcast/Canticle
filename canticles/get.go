@@ -1,25 +1,24 @@
 package canticles
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 )
 
 type Get struct {
-	flags      *flag.FlagSet
-	Verbose    bool
-	Nodeps     bool
-	LocalsOnly bool
-	Source     string
+	flags   *flag.FlagSet
+	Verbose bool
+	Update  bool
+	Source  string
 }
 
 func NewGet() *Get {
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	g := &Get{flags: f}
 	f.BoolVar(&g.Verbose, "v", false, "Be verbose when getting stuff")
-	f.BoolVar(&g.Nodeps, "n", false, "Only fetch the target package, do not resolve deps")
-	f.BoolVar(&g.LocalsOnly, "l", false, "Do not attempt to resolve a remote repo for this dep")
+	f.BoolVar(&g.Update, "u", false, "Update branches where possible, print the results")
 	f.StringVar(&g.Source, "source", "", "Overide the VCS url to fetch this from")
 	return g
 }
@@ -28,15 +27,13 @@ var get = NewGet()
 
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-v]",
+	UsageLine:        "get [-v] [-u]",
 	ShortDescription: "download dependencies as defined in the Canticle file",
 	LongDescription: `The get command fetches dependencies. When issued locally it looks...
 
 Specify -v to print out a verbose set of operations instead of just errors.
 
-Specify -n to only download the target package and to not resolve target deps. 
-
-Specify -l to fetch no remote deps but do set any existing repos to the correct revision.`,
+Specify -u to update branches and print results.`,
 	Flags: get.flags,
 	Cmd:   get,
 }
@@ -83,9 +80,17 @@ func (g *Get) GetPackage(path string) error {
 		Reader:   depReader,
 		Resolver: resolver,
 		Gopath:   gopath,
+		Update:   g.Update,
 	}
 	if err := loader.FetchPath(path); err != nil {
 		return fmt.Errorf("cant load package %s", err.Error())
+	}
+	if g.Update {
+		b, err := json.Marshal(loader.Updated())
+		if err != nil {
+			return err
+		}
+		fmt.Print("Updated packages: ", string(b))
 	}
 	return nil
 }

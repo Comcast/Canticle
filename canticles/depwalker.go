@@ -259,8 +259,8 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 
 	// If we get back a no buildable with no read imports return
 	// nil (this is an empty dir, so we don't want it in our
-	// package setup). If we have any pkgDeps though (from a cant
-	// file) we need this.
+	// package setup). If we have any pkgDeps though (from a cant file)
+	// we need this.
 	pkgDeps, err := ds.read(path)
 	if len(pkgDeps) == 0 && err != nil {
 		if e, ok := err.(*PackageError); ok {

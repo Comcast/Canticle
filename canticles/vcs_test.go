@@ -118,6 +118,10 @@ type TestVCS struct {
 	Root    string
 }
 
+func (v *TestVCS) UpdateBranch(branch string) (bool, string, error) {
+	return false, "", nil
+}
+
 func (v *TestVCS) Create(rev string) error {
 	v.Rev = rev
 	v.Created++

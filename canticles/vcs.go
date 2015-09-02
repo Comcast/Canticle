@@ -23,6 +23,7 @@ type VCS interface {
 	SetRev(rev string) error
 	GetRev() (string, error)
 	GetBranch() (string, error)
+	UpdateBranch(branch string) (updated bool, update string, err error)
 	GetSource() (string, error)
 	GetRoot() string
 }
@@ -196,7 +197,11 @@ var (
 		HgBranchCmd.Name:  HgBranchCmd,
 		BzrBranchCmd.Name: BzrBranchCmd,
 	}
+)
 
+// An UpdateCMD is used to update a local copy of remote branches and
+// tags. Not relevant for Bazaar and SVN.
+var (
 	// GitUpdateCmd is used to update local copy's of remote branches (if present)
 	GitUpdateCmd = &VCSCmd{
 		Name:       "Git",
@@ -237,13 +242,13 @@ var (
 		Name:       "Bazaar",
 		Cmd:        "bzr",
 		Args:       []string{"update", "-r", "{tag}"},
-		ParseRegex: regexp.MustCompile(`(.+)`),
+		ParseRegex: regexp.MustCompile(`(Updated to .+|Tree is up)$`),
 	}
 	SvnTagSyncCmd = &VCSCmd{
 		Name:       "Subversion",
 		Cmd:        "svn",
-		Args:       []string{"update", "-r", "{tag}"},
-		ParseRegex: regexp.MustCompile(`(.+)`),
+		Args:       []string{"update", "--accept", "postpone", "-r", "{tag}"},
+		ParseRegex: regexp.MustCompile(`(Updated to .+|At revision)`),
 	}
 	TagSyncCmds = map[string]*VCSCmd{
 		GitTagSyncCmd.Name: GitTagSyncCmd,
@@ -253,12 +258,43 @@ var (
 	}
 )
 
+// A BranchUpdateCmd is used to update a branch (assumed to be already
+// checked out) against a remote source. These commands will fail if
+// the git equivalent of a "fast forward merge" can not be completed.
+// The svn and bzr commands are the same as the tagsync commands.
+var (
+	GitBranchUpdateCmd = &VCSCmd{
+		Name:       "Git",
+		Cmd:        "git",
+		Args:       []string{"pull", "--ff-only", "origin", "{branch}"},
+		ParseRegex: regexp.MustCompile(`(Already|Updating .+)`),
+	}
+	HgBranchUpdateCmd = &VCSCmd{
+		Name:       "Mercurial",
+		Cmd:        "hg",
+		Args:       []string{"pull", "-u"},
+		ParseRegex: regexp.MustCompile(`(added .+|no changes found)$`),
+	}
+	BranchUpdateCmds = map[string]*VCSCmd{
+		GitBranchUpdateCmd.Name: GitBranchUpdateCmd,
+		HgBranchUpdateCmd.Name:  HgBranchUpdateCmd,
+		BzrTagSyncCmd.Name:      BzrTagSyncCmd,
+		SvnTagSyncCmd.Name:      SvnTagSyncCmd,
+	}
+	BranchUpdatedRegexs = map[string]*regexp.Regexp{
+		GitBranchUpdateCmd.Name: regexp.MustCompile(`(Updating .+)`),
+		HgBranchUpdateCmd.Name:  regexp.MustCompile(`(added .+)`),
+		BzrTagSyncCmd.Name:      regexp.MustCompile(`(Updated to .+)`),
+		SvnTagSyncCmd.Name:      regexp.MustCompile(`(Updated to .+)`),
+	}
+)
+
 func GetSvnBranches(path string) ([]string, error) {
 	return nil, errors.New("Not implemented")
 }
 
 func GetGitBranches(path string) ([]string, error) {
-	cmd := exec.Command("git show-ref")
+	cmd := exec.Command("git", "show-ref")
 	cmd.Dir = path
 	result, err := cmd.CombinedOutput()
 	if err != nil {
@@ -271,11 +307,11 @@ func GetGitBranches(path string) ([]string, error) {
 		if len(parts) > 1 {
 			refName := parts[1]
 			switch {
-			case strings.HasPrefix("refs/heads/", refName):
-				results = append(results, strings.TrimPrefix("refs/heads/", refName))
-			case strings.HasPrefix("refs/remotes/", refName):
+			case strings.HasPrefix(refName, "refs/heads/"):
+				results = append(results, strings.TrimPrefix(refName, "refs/heads/"))
+			case strings.HasPrefix(refName, "refs/remotes/"):
 				// refs/remotes/origin/<branchname>
-				remoteRef := strings.SplitN(strings.TrimPrefix("refs/remotes/", refName), "/", 2)
+				remoteRef := strings.SplitN(strings.TrimPrefix(refName, "refs/remotes/"), "/", 2)
 				results = append(results, remoteRef[1])
 			}
 		}
@@ -301,32 +337,36 @@ var BranchFuncs = map[string]func(string) ([]string, error){
 // A LocalVCS uses packages and version control systems available at a
 // local srcpath to control a local destpath (it copies the files over).
 type LocalVCS struct {
-	Package       string
-	Root          string
-	SrcPath       string
-	Cmd           *vcs.Cmd
-	CurrentRevCmd *VCSCmd // CurrentRevCommand to check the current revision for sourcepath.
-	RemoteCmd     *VCSCmd // RemoteCmd to obtain the upstream (remote) for a repo
-	BranchCmd     *VCSCmd // BranchCmd to obtains the current branch if on one
-	UpdateCmd     *VCSCmd // UpdateCMD is used to pull remote updates but NOT update the local
-	SyncCmd       *VCSCmd
-	Branches      func(path string) ([]string, error)
+	Package            string
+	Root               string
+	SrcPath            string
+	Cmd                *vcs.Cmd
+	CurrentRevCmd      *VCSCmd        // CurrentRevCommand to check the current revision for sourcepath.
+	RemoteCmd          *VCSCmd        // RemoteCmd to obtain the upstream (remote) for a repo
+	BranchCmd          *VCSCmd        // BranchCmd to obtains the current branch if on one
+	UpdateCmd          *VCSCmd        // UpdateCMD is used to pull remote updates but NOT update the local
+	BranchUpdateCmd    *VCSCmd        // BranchUpdateCmd is used to update a local branch with a remote
+	BranchUpdatedRegex *regexp.Regexp // The regex to examine if an update occured from a branch update cmd
+	SyncCmd            *VCSCmd
+	Branches           func(path string) ([]string, error)
 }
 
 // NewLocalVCS returns a a LocalVCS with CurrentRevCmd initialized
 // from the cmd's name using RevCmds and RemoteCmd from RemoteCmds.
 func NewLocalVCS(pkg, root, srcPath string, cmd *vcs.Cmd) *LocalVCS {
 	return &LocalVCS{
-		Package:       pkg,
-		Root:          root,
-		SrcPath:       srcPath,
-		Cmd:           cmd,
-		CurrentRevCmd: RevCmds[cmd.Name],
-		RemoteCmd:     RemoteCmds[cmd.Name],
-		BranchCmd:     BranchCmds[cmd.Name],
-		UpdateCmd:     UpdateCmds[cmd.Name],
-		Branches:      BranchFuncs[cmd.Name],
-		SyncCmd:       TagSyncCmds[cmd.Name],
+		Package:            pkg,
+		Root:               root,
+		SrcPath:            srcPath,
+		Cmd:                cmd,
+		CurrentRevCmd:      RevCmds[cmd.Name],
+		RemoteCmd:          RemoteCmds[cmd.Name],
+		BranchCmd:          BranchCmds[cmd.Name],
+		UpdateCmd:          UpdateCmds[cmd.Name],
+		Branches:           BranchFuncs[cmd.Name],
+		BranchUpdateCmd:    BranchUpdateCmds[cmd.Name],
+		BranchUpdatedRegex: BranchUpdatedRegexs[cmd.Name],
+		SyncCmd:            TagSyncCmds[cmd.Name],
 	}
 }
 
@@ -354,10 +394,6 @@ func (lv *LocalVCS) SetRev(rev string) error {
 	if err := lv.TagSync(rev); err != nil {
 		return err
 	}
-	// For branches we may need to update
-	if lv.RevIsBranch(rev) {
-		return lv.Cmd.Download(src)
-	}
 	return nil
 }
 
@@ -375,11 +411,13 @@ func (lv *LocalVCS) TagSync(rev string) error {
 }
 
 func (lv *LocalVCS) RevIsBranch(rev string) bool {
-	br, err := lv.Branches(PackageSource(lv.SrcPath, lv.Root))
+	branches, err := lv.Branches(PackageSource(lv.SrcPath, lv.Root))
 	if err != nil {
+		LogVerbose("Error getting branches %s", err.Error())
 		return false
 	}
-	for _, br := range br {
+	LogVerbose("Found branches %v", branches)
+	for _, br := range branches {
 		if rev == br {
 			return true
 		}
@@ -416,6 +454,23 @@ func (lv *LocalVCS) GetRoot() string {
 // current local repo. If none GetBranch will return an error.
 func (lv *LocalVCS) GetBranch() (string, error) {
 	return lv.BranchCmd.Exec(PackageSource(lv.SrcPath, lv.Root))
+}
+
+// UpdateBranch will return true if the local branch was updated,
+// false if not. Error will be non nil if an error occured during the
+// udpate.
+func (lv *LocalVCS) UpdateBranch(branch string) (updated bool, update string, err error) {
+	if !lv.RevIsBranch(branch) {
+		return false, fmt.Sprintf("rev %s is not a branch", branch), nil
+	}
+	res, err := lv.BranchUpdateCmd.ExecReplace(
+		PackageSource(lv.SrcPath, lv.Root),
+		map[string]string{"{branch}": branch},
+	)
+	if lv.BranchUpdatedRegex.Match([]byte(res)) {
+		return true, res, err
+	}
+	return false, res, err
 }
 
 // VCSType represents a prefix to look for, a scheme to ping a path
@@ -472,6 +527,10 @@ type PackageVCS struct {
 	Repo   *vcs.RepoRoot
 	Gopath string
 	cwd    string
+}
+
+func (pv *PackageVCS) UpdateBranch(branch string) (updated bool, update string, err error) {
+	return false, "", errors.New("Not implemented")
 }
 
 func (pv *PackageVCS) cdRoot() {
