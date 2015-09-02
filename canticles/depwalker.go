@@ -257,17 +257,21 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 		return nil
 	}
 
-	// If ds.read returns no deps, than this folder may contain no
-	// buildable gofiles
+	// If we get back a no buildable with no read imports return
+	// nil (this is an empty dir, so we don't want it in our
+	// package setup). If we have any pkgDeps though (from a cant
+	// file) we need this.
 	pkgDeps, err := ds.read(path)
-	if err != nil {
+	if len(pkgDeps) == 0 && err != nil {
+		if e, ok := err.(*PackageError); ok {
+			if e.IsNoBuildable() {
+				return nil
+			}
+		}
 		LogVerbose("Error reading pkg deps %s %s", pkg, err.Error())
 		dep := NewDependency(pkg)
 		dep.Err = fmt.Errorf("cant read deps for package %s %s", pkg, err.Error())
 		ds.deps.AddDependency(dep)
-		return nil
-	}
-	if len(pkgDeps) == 0 {
 		return nil
 	}
 
