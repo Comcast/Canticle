@@ -66,7 +66,11 @@ func (ds *DependencySources) AddSource(source *DependencySource) {
 func (ds *DependencySources) String() string {
 	str := ""
 	for _, source := range ds.Sources {
-		str += fmt.Sprintf("%s: [\n\t%+v]\n", source.Root, source)
+		str += fmt.Sprintf("%s \n\tRevisions:%v OnDiskRevision:%s\n\tSources:%v OnDiskSource:%s\n\tDeps:", source.Root, source.Revisions, source.OnDiskRevision, source.Sources, source.OnDiskSource)
+		for _, dep := range source.Deps {
+			str += fmt.Sprintf("\n\t\t%+v", dep)
+		}
+		str += fmt.Sprintf("\n")
 	}
 	return str
 }
