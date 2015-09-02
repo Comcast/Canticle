@@ -65,6 +65,11 @@ func (s *Save) Run(args []string) {
 	}
 }
 
+// SaveProject does four things:
+//   *  It fetches the dep tree of path
+//   *  It fetches all possible DependencySources
+//   *  It performs conflict resolution
+//   *  It saves a Canticle file in path
 func (s *Save) SaveProject(path string) error {
 	gopath := EnvGoPath()
 	deps, err := s.ReadDeps(gopath, path)
@@ -86,6 +91,8 @@ func (s *Save) SaveProject(path string) error {
 	return nil
 }
 
+// GetSources returns the DependencySources (e.g. the possible revisions, vcs sources, and deps)
+// for a give path, and set Dependencies.
 func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySources, error) {
 	LogVerbose("Getting local vcs sources for repos in path %+v", gopath)
 	repoResolver := NewMemoizedRepoResolver(&LocalRepoResolver{gopath})
@@ -98,8 +105,7 @@ func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySo
 	return sourceResolver.ResolveSources(deps)
 }
 
-// ReadDeps reads all dependencies and transitive deps for deps. May
-// mutate deps.
+// ReadDeps reads all dependencies and transitive deps for path.
 func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 	LogVerbose("Reading deps for repos in path %+v", gopath)
 	reader := &DepReader{Gopath: gopath}
@@ -112,7 +118,7 @@ func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 	return ds.Dependencies(), nil
 }
 
-// SaveDeps saves a canticle file into deps containing deps.
+// SaveDeps saves a canticle file at path containing deps.
 func (s *Save) SaveDeps(path string, deps []*CanticleDependency) error {
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
