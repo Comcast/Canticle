@@ -141,28 +141,31 @@ func LogWarn(fmtString string, args ...interface{}) {
 	log.Printf("WARN: "+fmtString, args...)
 }
 
+// StringSets adds set like operations to a string map.
 type StringSet map[string]bool
 
+// NewStringSet returns an initalized string set.
 func NewStringSet() StringSet {
 	return make(map[string]bool)
 }
 
+// String so this value pretty prints well.
 func (ss StringSet) String() string {
 	keys := make([]string, 0, len(ss))
-	for k, _ := range ss {
+	for k := range ss {
 		keys = append(keys, k)
 	}
 	return fmt.Sprintf("%+v", keys)
 }
 
-// Add strings to set
+// Add strings to set.
 func (ss StringSet) Add(b ...string) {
 	for _, s := range b {
 		ss[s] = true
 	}
 }
 
-// Union performs the union of this with another string set
+// Union performs the union of this with another string set.
 func (ss StringSet) Union(sets ...StringSet) {
 	for _, set := range sets {
 		for str := range set {
@@ -171,7 +174,7 @@ func (ss StringSet) Union(sets ...StringSet) {
 	}
 }
 
-// Array returns the set as a sorted array
+// Array returns the set as a sorted array.
 func (ss StringSet) Array() []string {
 	result := make([]string, 0, len(ss))
 	for s := range ss {
@@ -181,6 +184,7 @@ func (ss StringSet) Array() []string {
 	return result
 }
 
+// Size of the string set.
 func (ss StringSet) Size() int {
 	return len(ss)
 }

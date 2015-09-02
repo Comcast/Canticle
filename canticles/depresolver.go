@@ -2,6 +2,9 @@ package canticles
 
 import "fmt"
 
+// A DependencySource represents the possible options to source a
+// dependency from. Its possible revisions, remote sources, and other
+// information like its on disk root, or errors resolving it.
 type DependencySource struct {
 	// Revisions specified by canticle files
 	Revisions StringSet
@@ -19,6 +22,8 @@ type DependencySource struct {
 	Err error
 }
 
+// NewDependencySource initalizes a DependencySource rooted at root on
+// disk.
 func NewDependencySource(root string) *DependencySource {
 	return &DependencySource{
 		Root:      root,
@@ -28,14 +33,21 @@ func NewDependencySource(root string) *DependencySource {
 	}
 }
 
+// DependencySources represents a collection of dependencysources,
+// including functionality to lookup deps that may be rooted in other
+// deps.
 type DependencySources struct {
 	Sources []*DependencySource
 }
 
+// NewDependencySources with an iniital size for performance.
 func NewDependencySources(size int) *DependencySources {
 	return &DependencySources{make([]*DependencySource, 0, size)}
 }
 
+// DepSource returns the source for a dependency if its already
+// present. That is if the deps importpath has a prefix in
+// this collection.
 func (ds *DependencySources) DepSource(dep *Dependency) *DependencySource {
 	for _, source := range ds.Sources {
 		if source.Root == dep.ImportPath || PathIsChild(source.Root, dep.ImportPath) {
@@ -45,10 +57,12 @@ func (ds *DependencySources) DepSource(dep *Dependency) *DependencySource {
 	return nil
 }
 
+// AddSource appends this DependencySource to our collection.
 func (ds *DependencySources) AddSource(source *DependencySource) {
 	ds.Sources = append(ds.Sources, source)
 }
 
+// String to pretty print this.
 func (ds *DependencySources) String() string {
 	str := ""
 	for _, source := range ds.Sources {
@@ -57,12 +71,16 @@ func (ds *DependencySources) String() string {
 	return str
 }
 
+// A SourcesResolver takes a set of dependencies and returns the
+// possible sources and revisions for it (DependencySources) for it.
 type SourcesResolver struct {
 	RootPath, Gopath string
 	Resolver         RepoResolver
 	Branches         bool
 }
 
+// ResolveSources for everything in deps, no dependency trees will be
+// walked.
 func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources, error) {
 	sources := NewDependencySources(len(deps))
 	for _, dep := range deps {

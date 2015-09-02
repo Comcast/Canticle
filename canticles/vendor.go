@@ -51,14 +51,14 @@ func (v *Vendor) Run(args []string) {
 	if v.Sources != "" {
 		f, err := os.Open(v.Sources)
 		if err != nil {
-			log.Fatal("cant open dep file %s", v.Sources)
+			log.Fatalf("cant open dep file %s", v.Sources)
 			return
 		}
 		LogVerbose("Reading canticle file: %s", f.Name())
 		defer f.Close()
 		d := json.NewDecoder(f)
 		if err := d.Decode(&deps); err != nil {
-			log.Fatal("cant decode dep file %s", v.Sources)
+			log.Fatalf("cant decode dep file %s", v.Sources)
 			return
 		}
 	}
