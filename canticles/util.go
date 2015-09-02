@@ -117,7 +117,11 @@ func PackageName(gopath, path string) (string, error) {
 	}
 
 	name := filepath.ToSlash(path)
-	return strings.TrimPrefix(name, "src/"), nil
+	name = strings.TrimPrefix(name, "src/")
+	if name == "src" {
+		return "", nil
+	}
+	return name, nil
 }
 
 // Verbose controls whether verbose logs will be printed from this package
