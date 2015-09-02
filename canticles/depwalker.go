@@ -206,6 +206,9 @@ type DependencySaver struct {
 	gopath string
 	root   string
 	read   DepReaderFunc
+	// NoRecur contains a list of directories this will not recur
+	// into under root.
+	NoRecur StringSet
 }
 
 // NewDependencySaver builds a new dependencysaver to work in the
@@ -216,10 +219,11 @@ type DependencySaver struct {
 // will not be saved.
 func NewDependencySaver(reader DepReaderFunc, gopath, root string) *DependencySaver {
 	return &DependencySaver{
-		deps:   NewDependencies(),
-		root:   root,
-		read:   reader,
-		gopath: gopath,
+		deps:    NewDependencies(),
+		root:    root,
+		read:    reader,
+		gopath:  gopath,
+		NoRecur: NewStringSet(),
 	}
 }
 
@@ -248,7 +252,13 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 		ds.deps.AddDependency(dep)
 		return ErrorSkip
 	}
+	// Don't attempt to read the dependencies of the "src" dir...
+	if path == PackageSource(ds.gopath, "") {
+		return nil
+	}
 
+	// If ds.read returns no deps, than this folder may contain no
+	// buildable gofiles
 	pkgDeps, err := ds.read(path)
 	if err != nil {
 		LogVerbose("Error reading pkg deps %s %s", pkg, err.Error())
@@ -276,28 +286,29 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 // PackagePaths returns d all import paths for a pkg, and all subdirs
 // if the pkg is under the root of the passed to the ds at construction.
 func (ds *DependencySaver) PackagePaths(pkg string) ([]string, error) {
-	var subdirs []string
-	var err error
+	paths := NewStringSet()
 	if PathIsChild(ds.root, pkg) {
-		subdirs, err = VisibleSubDirectories(pkg)
+		subdirs, err := VisibleSubDirectories(pkg)
 		if err != nil {
 			return []string{}, err
 		}
+		paths.Add(subdirs...)
 		LogVerbose("Package has subdirs %v", subdirs)
 	}
+	paths.Difference(ds.NoRecur)
 	dep := ds.deps.Dependency(pkg)
 	if dep == nil {
-		return subdirs, nil
+		return paths.Array(), nil
 	}
 	if dep.Err != nil {
 		return []string{}, nil
 	}
 	imports := dep.Imports.Array()
-	for i, imp := range imports {
-		imports[i] = PackageSource(ds.gopath, imp)
+	for _, imp := range imports {
+		paths.Add(PackageSource(ds.gopath, imp))
 	}
 	LogVerbose("Package has imports %v", imports)
-	return append(subdirs, imports...), nil
+	return paths.Array(), nil
 }
 
 // Dependencies returns the resolved dependencies from dependency
