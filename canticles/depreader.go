@@ -63,14 +63,7 @@ func (dr *DepReader) AllDeps(path string) (Dependencies, error) {
 	// no go files
 	goDeps, err := dr.GoRemoteDependencies(pname)
 	if err != nil {
-		switch e := err.(type) {
-		case *PackageError:
-			if !e.IsNoBuildable() {
-				return allDeps, err
-			}
-		default:
-			return allDeps, err
-		}
+		return allDeps, err
 	}
 	allDeps.AddDeps(goDeps...)
 	return allDeps, nil
