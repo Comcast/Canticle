@@ -159,10 +159,31 @@ func (ss StringSet) String() string {
 	return fmt.Sprintf("%+v", keys)
 }
 
+// Set is the same as add but used for the flag interface. Always
+// returns nil.
+func (ss StringSet) Set(v string) error {
+	ss.Add(v)
+	return nil
+}
+
 // Add strings to set.
 func (ss StringSet) Add(b ...string) {
 	for _, s := range b {
 		ss[s] = true
+	}
+}
+
+// Difference between this set and b (remove items in b from us).
+func (ss StringSet) Difference(b StringSet) {
+	for k := range b {
+		ss.Remove(k)
+	}
+}
+
+// Remove all strings in b from the set
+func (ss StringSet) Remove(b ...string) {
+	for _, s := range b {
+		delete(ss, s)
 	}
 }
 
@@ -188,6 +209,25 @@ func (ss StringSet) Array() []string {
 // Size of the string set.
 func (ss StringSet) Size() int {
 	return len(ss)
+}
+
+type DirFlags StringSet
+
+func (ds DirFlags) String() string {
+	return StringSet(ds).String()
+}
+
+func (ds DirFlags) Set(v string) error {
+	if path.IsAbs(v) {
+		StringSet(ds).Add(v)
+		return nil
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not add relative directory, error getting wd %s", err.Error())
+	}
+	StringSet(ds).Add(path.Join(wd, v))
+	return nil
 }
 
 // Return the location of the depedency file for a path. Should be a

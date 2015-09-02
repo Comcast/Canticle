@@ -15,6 +15,7 @@ type Save struct {
 	DryRun   bool
 	OnDisk   bool
 	Branches bool
+	Excludes DirFlags
 	Resolver ConflictResolver
 }
 
@@ -23,11 +24,13 @@ func NewSave() *Save {
 	s := &Save{
 		flags:    f,
 		Resolver: &PromptResolution{},
+		Excludes: DirFlags(NewStringSet()),
 	}
 	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&s.OnDisk, "ondisk", false, "Save the revisions and sources present on disk ignoring all other Canticle files.")
 	f.BoolVar(&s.DryRun, "d", false, "Don't save the deps, just print them.")
 	f.BoolVar(&s.Branches, "b", false, "Save branches for the current projects, not revisions.")
+	f.Var(&s.Excludes, "exclude", "Do not recur into these directories when saving unless they are in the dep tree.")
 	return s
 }
 
@@ -35,13 +38,15 @@ var save = NewSave()
 
 var SaveCommand = &Command{
 	Name:             "save",
-	UsageLine:        "save [-f] [-ondisk] [-d] [-b]",
+	UsageLine:        "save [-f] [-ondisk] [-d] [-b] [-exclude <dir>] ",
 	ShortDescription: "Save the current revision of all dependencies in a Canticle file.",
 	LongDescription: `The save command will save the dependencies for a package into a Canticle file.  If at the src level save the current revision of all packages in belows. All dependencies must be present on disk and in the GOROOT. The generated Canticle file will be saved in the packages root directory.
 
 Specify -v to print out a verbose set of operations instead of just errors.
 
-Specify -ondisk to use on disk revisions and sources and do no conflict resolution.`,
+Specify -ondisk to use on disk revisions and sources and do no conflict resolution.
+
+Specify -b to save branches or tags when present instead of revisions`,
 	Flags: save.flags,
 	Cmd:   save,
 }
@@ -110,6 +115,7 @@ func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 	LogVerbose("Reading deps for repos in path %+v", gopath)
 	reader := &DepReader{Gopath: gopath}
 	ds := NewDependencySaver(reader.AllDeps, gopath, path)
+	ds.NoRecur = StringSet(s.Excludes)
 	dw := NewDependencyWalker(ds.PackagePaths, ds.SavePackageDeps)
 	if err := dw.TraverseDependencies(path); err != nil {
 		return nil, fmt.Errorf("cant read path dep tree %s %s", path, err.Error())
