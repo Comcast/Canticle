@@ -86,3 +86,17 @@ type CanticleDependency struct {
 	// fetch the subdirs of package.
 	All bool `json:",omitempty"`
 }
+
+type CanticleDependencies []*CanticleDependency
+
+func (cd CanticleDependencies) Len() int {
+	return len(cd)
+}
+
+func (cd CanticleDependencies) Less(i, j int) bool {
+	return cd[i].Root < cd[j].Root
+}
+
+func (cd CanticleDependencies) Swap(i, j int) {
+	cd[i], cd[j] = cd[j], cd[i]
+}

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 )
 
 type Save struct {
@@ -126,6 +127,7 @@ func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
 
 // SaveDeps saves a canticle file at path containing deps.
 func (s *Save) SaveDeps(path string, deps []*CanticleDependency) error {
+	sort.Sort(CanticleDependencies(deps))
 	j, err := json.MarshalIndent(deps, "", "    ")
 	if err != nil {
 		return err
