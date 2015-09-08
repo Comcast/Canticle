@@ -172,7 +172,9 @@ func (ss StringSet) Set(v string) error {
 // Add strings to set.
 func (ss StringSet) Add(b ...string) {
 	for _, s := range b {
-		ss[s] = true
+		if s != "" {
+			ss[s] = true
+		}
 	}
 }
 
@@ -194,7 +196,9 @@ func (ss StringSet) Remove(b ...string) {
 func (ss StringSet) Union(sets ...StringSet) {
 	for _, set := range sets {
 		for str := range set {
-			ss[str] = true
+			if str != "" {
+				ss[str] = true
+			}
 		}
 	}
 }

@@ -102,11 +102,13 @@ func (s *Save) SaveProject(path string) error {
 func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySources, error) {
 	LogVerbose("Getting local vcs sources for repos in path %+v", gopath)
 	repoResolver := NewMemoizedRepoResolver(&LocalRepoResolver{gopath})
+	reader := &DepReader{Gopath: gopath}
 	sourceResolver := &SourcesResolver{
-		Gopath:   gopath,
-		RootPath: path,
-		Resolver: repoResolver,
-		Branches: s.Branches,
+		Gopath:     gopath,
+		RootPath:   path,
+		Resolver:   repoResolver,
+		Branches:   s.Branches,
+		CDepReader: reader,
 	}
 	return sourceResolver.ResolveSources(deps)
 }
