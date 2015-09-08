@@ -1,6 +1,9 @@
 package canticles
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 // A DependencySource represents the possible options to source a
 // dependency from. Its possible revisions, remote sources, and other
@@ -33,6 +36,15 @@ func NewDependencySource(root string) *DependencySource {
 	}
 }
 
+// AddCantSource adds a canticle source dep
+func (d *DependencySource) AddCantSource(source *CanticleDependency, path string) {
+	d.Revisions.Add(source.Revision)
+	d.Sources.Add(source.SourcePath)
+	dep := NewDependency(path)
+	dep.Imports.Add(source.Root)
+	d.Deps.AddDependency(dep)
+}
+
 // DependencySources represents a collection of dependencysources,
 // including functionality to lookup deps that may be rooted in other
 // deps.
@@ -48,9 +60,9 @@ func NewDependencySources(size int) *DependencySources {
 // DepSource returns the source for a dependency if its already
 // present. That is if the deps importpath has a prefix in
 // this collection.
-func (ds *DependencySources) DepSource(dep *Dependency) *DependencySource {
+func (ds *DependencySources) DepSource(importPath string) *DependencySource {
 	for _, source := range ds.Sources {
-		if source.Root == dep.ImportPath || PathIsChild(source.Root, dep.ImportPath) {
+		if source.Root == importPath || PathIsChild(source.Root, importPath) {
 			return source
 		}
 	}
@@ -81,6 +93,7 @@ type SourcesResolver struct {
 	RootPath, Gopath string
 	Resolver         RepoResolver
 	Branches         bool
+	CDepReader       CantDepReader
 }
 
 // ResolveSources for everything in deps, no dependency trees will be
@@ -91,7 +104,7 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 		LogVerbose("\tFinding source for %s", dep.ImportPath)
 		// If we already have a source
 		// for this dep just continue
-		if source := sources.DepSource(dep); source != nil {
+		if source := sources.DepSource(dep.ImportPath); source != nil {
 			LogVerbose("\t\tDep already added %s", dep.ImportPath)
 			source.Deps.AddDependency(dep)
 			continue
@@ -138,5 +151,42 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 
 		sources.AddSource(source)
 	}
+
+	// Resolve sources from importpaths
+	for _, dep := range deps {
+		if err := sr.resolveCantDeps(sources, dep.ImportPath); err != nil {
+			return sources, err
+		}
+	}
+
+	// Resolve any sources from our vcs roots
+	for _, source := range sources.Sources {
+		if err := sr.resolveCantDeps(sources, source.Root); err != nil {
+			return sources, err
+		}
+	}
+
 	return sources, nil
+}
+
+func (sr *SourcesResolver) resolveCantDeps(sources *DependencySources, path string) error {
+	cdeps, err := sr.CDepReader.CanticleDependencies(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, cdep := range cdeps {
+		source := sources.DepSource(cdep.Root)
+		if source != nil {
+			source.AddCantSource(cdep, path)
+			continue
+		}
+		source = NewDependencySource(cdep.Root)
+		source.AddCantSource(cdep, path)
+		sources.AddSource(source)
+	}
+	return nil
 }

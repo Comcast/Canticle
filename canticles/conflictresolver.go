@@ -67,8 +67,12 @@ func (pr *PromptResolution) SelectSource(dep *DependencySource) (string, error) 
 	return ResolvePrompt(dep.Root, "sources", dep.OnDiskSource, dep.Sources.Array())
 }
 
+// ResolvePrompt is used to prompt a user for a resolution between
+// multiple alternates, wth ondisk marking the currently select
+// option.
+// TODO: Add some sort of auto completion here
 func ResolvePrompt(pkg, conflict, ondisk string, alts []string) (string, error) {
-	fmt.Printf("Package %s has conflicting %s:\n", pkg, conflict)
+	fmt.Printf("\nPackage %s has conflicting %s:\n", pkg, conflict)
 	for _, rev := range alts {
 		if rev == ondisk {
 			fmt.Println(rev, "(current)")
@@ -76,8 +80,8 @@ func ResolvePrompt(pkg, conflict, ondisk string, alts []string) (string, error) 
 		}
 		fmt.Println(rev)
 	}
-	fmt.Printf("Select %s:", conflict)
+	fmt.Printf("Selection %s: ", conflict)
 	var choice string
-	_, err := fmt.Scanf("%s", choice)
+	_, err := fmt.Scanf("%s", &choice)
 	return choice, err
 }
