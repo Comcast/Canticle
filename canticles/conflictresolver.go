@@ -52,7 +52,7 @@ func (pr *PromptResolution) ResolveConflict(dep *DependencySource) (*CanticleDep
 		cd.Revision = dep.Revisions.Array()[0]
 	}
 	if dep.Sources.Size() > 1 {
-		cd.Revision, err = pr.SelectSource(dep)
+		cd.SourcePath, err = pr.SelectSource(dep)
 	} else {
 		cd.SourcePath = dep.Sources.Array()[0]
 	}
