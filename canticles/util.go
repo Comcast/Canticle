@@ -58,6 +58,7 @@ func (dc *DirCopier) cp(path string, f os.FileInfo, err error) error {
 		return err
 	}
 	defer d.Close()
+	d.Chmod(f.Mode())
 	if _, err := io.Copy(d, s); err != nil {
 		return err
 	}
