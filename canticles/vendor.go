@@ -73,7 +73,10 @@ func (v *Vendor) Run(args []string) {
 
 func (v *Vendor) Vendor(pkg string, deps []*CanticleDependency) error {
 	LogVerbose("Fetching pkg %+v", pkg)
-	gopath := EnvGoPath()
+	gopath, err := EnvGoPath()
+	if err != nil {
+		return err
+	}
 	resolvers := []RepoResolver{
 		&LocalRepoResolver{LocalPath: gopath},
 		&RemoteRepoResolver{gopath},
@@ -87,8 +90,7 @@ func (v *Vendor) Vendor(pkg string, deps []*CanticleDependency) error {
 	dw := NewDependencyWalker(dl.PackageImports, dl.FetchUpdatePackage)
 
 	// And walk it
-	err := dw.TraverseDependencies(pkg)
-	if err != nil {
+	if err := dw.TraverseDependencies(pkg); err != nil {
 		return fmt.Errorf("cant fetch packages %s", err.Error())
 	}
 

@@ -82,9 +82,28 @@ func PatchEnviroment(env []string, key, value string) []string {
 	return append(env, newValue)
 }
 
-// EnvGoPath returns the enviroments GOPATH variable
-func EnvGoPath() string {
-	return os.Getenv("GOPATH")
+// EnvGoPath returns a proper gopath, if we are inside a gb style
+// 'src/' workspace this gopath is set to the parent of the src dir.
+// If not the enviorment gopath will be used. If neither a log message
+// will be printed on the program will exit.
+func EnvGoPath() (string, error) {
+	gopath := os.Getenv("GOPATH")
+	wd, err := os.Getwd()
+	if gopath != "" && err != nil {
+		return gopath, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("no gopath set and error getting current working directory %s", err.Error())
+	}
+	root := ProjectRoot(wd)
+	if root != "" {
+		return root, nil
+	}
+	if gopath != "" {
+		return gopath, nil
+	}
+
+	return "", fmt.Errorf("no gopath set and working directory %s is not inside a 'src/' directory", wd)
 }
 
 // PathIsChild will return true if the child path
@@ -256,10 +275,11 @@ func VisibleSubDirectories(dirname string) ([]string, error) {
 }
 
 func ProjectRoot(dirname string) string {
-	list := filepath.SplitList(dirname)
+	list := strings.Split(filepath.ToSlash(dirname), "/")
 	for i, part := range list {
 		if part == "src" {
-			return path.Join(list[:i]...)
+			list = append([]string{"/"}, list[:i]...)
+			return path.Join(list...)
 		}
 	}
 	return ""

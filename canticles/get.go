@@ -67,7 +67,10 @@ func (g *Get) Run(args []string) {
 // the buildroot or the gopath.
 func (g *Get) GetPackage(path string) error {
 	LogVerbose("Fetching path %+v", path)
-	gopath := EnvGoPath()
+	gopath, err := EnvGoPath()
+	if err != nil {
+		return err
+	}
 	resolvers := []RepoResolver{
 		&LocalRepoResolver{LocalPath: gopath},
 		&RemoteRepoResolver{gopath},
