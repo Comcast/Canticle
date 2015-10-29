@@ -49,7 +49,10 @@ func (g *GenVersion) Run(args []string) {
 }
 
 func (g *GenVersion) SaveProjectDeps(path string) error {
-	gopath := EnvGoPath()
+	gopath, err := EnvGoPath()
+	if err != nil {
+		return err
+	}
 	s := NewSave()
 	s.Resolver = &PreferLocalResolution{}
 	deps, err := s.ReadDeps(gopath, path)

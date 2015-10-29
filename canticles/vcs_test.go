@@ -74,8 +74,12 @@ func TestRemoteRepoResolver(t *testing.T) {
 }
 
 func TestLocalRepoResolver(t *testing.T) {
+	gopath, err := EnvGoPath()
+	if err != nil {
+		t.Fatalf("Could not get gopath: %s", err.Error())
+	}
 	lr := &LocalRepoResolver{
-		LocalPath: os.ExpandEnv("$GOPATH"),
+		LocalPath: gopath,
 	}
 
 	pkg := "github.comcast.com/viper-cog/cant"

@@ -77,7 +77,10 @@ func (s *Save) Run(args []string) {
 //   *  It performs conflict resolution
 //   *  It saves a Canticle file in path
 func (s *Save) SaveProject(path string) error {
-	gopath := EnvGoPath()
+	gopath, err := EnvGoPath()
+	if err != nil {
+		return err
+	}
 	deps, err := s.ReadDeps(gopath, path)
 	if err != nil {
 		return err

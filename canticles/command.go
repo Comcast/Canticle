@@ -50,8 +50,12 @@ func GetCurrentPackage() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	gopath, err := EnvGoPath()
+	if err != nil {
+		return "", err
+	}
 
-	return PackageName(EnvGoPath(), cwd)
+	return PackageName(gopath, cwd)
 }
 
 // ParseCmdLineDeps parses an array of packages or grabs the current
