@@ -85,8 +85,10 @@ func (g *Get) GetPackage(path string) error {
 		Gopath:   gopath,
 		Update:   g.Update,
 	}
-	if err := loader.FetchPath(path); err != nil {
-		return fmt.Errorf("cant load package %s", err.Error())
+	if errs := loader.FetchPath(path); len(errs) > 0 {
+		for _, err := range errs {
+			return fmt.Errorf("cant load package %s", err.Error())
+		}
 	}
 	if g.Update {
 		b, err := json.Marshal(loader.Updated())

@@ -165,6 +165,14 @@ func LogWarn(fmtString string, args ...interface{}) {
 	log.Printf("WARN: "+fmtString, args...)
 }
 
+// LogInfo will print lines unless quite is true
+func LogInfo(fmtString string, args ...interface{}) {
+	if Quite {
+		return
+	}
+	log.Printf("INFO: "+fmtString, args...)
+}
+
 // StringSets adds set like operations to a string map.
 type StringSet map[string]bool
 
