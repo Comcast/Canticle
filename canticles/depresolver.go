@@ -180,13 +180,10 @@ func (sr *SourcesResolver) resolveCantDeps(sources *DependencySources, path stri
 
 	for _, cdep := range cdeps {
 		source := sources.DepSource(cdep.Root)
-		if source != nil {
-			source.AddCantSource(cdep, path)
+		if source == nil {
 			continue
 		}
-		source = NewDependencySource(cdep.Root)
 		source.AddCantSource(cdep, path)
-		sources.AddSource(source)
 	}
 	return nil
 }
