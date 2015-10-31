@@ -81,7 +81,7 @@ func (pr PromptResolution) ResolvePrompt(pkg, conflict, ondisk string, alts []st
 	pr.Printf("\nPackage %s has conflicting %s:\n", pkg, conflict)
 	for _, rev := range alts {
 		if rev == ondisk {
-			pr.Printf("%s %s", rev, "(current)")
+			pr.Printf("%s %s\n", rev, "(current)")
 			continue
 		}
 		pr.Printf("%s\n", rev)
