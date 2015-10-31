@@ -24,7 +24,7 @@ func NewSave() *Save {
 	f := flag.NewFlagSet("save", flag.ExitOnError)
 	s := &Save{
 		flags:    f,
-		Resolver: &PromptResolution{},
+		Resolver: &PromptResolution{Printf: fmt.Printf, Scanf: fmt.Scanf},
 		Excludes: DirFlags(NewStringSet()),
 	}
 	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff")
@@ -81,6 +81,7 @@ func (s *Save) SaveProject(path string) error {
 	if err != nil {
 		return err
 	}
+	LogVerbose("Working with gopath %s", gopath)
 	deps, err := s.ReadDeps(gopath, path)
 	if err != nil {
 		return err
@@ -118,7 +119,7 @@ func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySo
 
 // ReadDeps reads all dependencies and transitive deps for path.
 func (s *Save) ReadDeps(gopath, path string) (Dependencies, error) {
-	LogVerbose("Reading deps for repos in path %+v", gopath)
+	LogVerbose("Reading deps for repos in path %s", path)
 	reader := &DepReader{Gopath: gopath}
 	ds := NewDependencySaver(reader.AllDeps, gopath, path)
 	ds.NoRecur = StringSet(s.Excludes)
