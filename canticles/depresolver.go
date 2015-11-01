@@ -89,11 +89,14 @@ func (ds *DependencySources) String() string {
 
 // A SourcesResolver takes a set of dependencies and returns the
 // possible sources and revisions for it (DependencySources) for it.
+// Sources and Branches control whether the source (e.g. github.com)
+// will be stored and whether brnaches of precise revisions will be
+// saved.
 type SourcesResolver struct {
-	RootPath, Gopath string
-	Resolver         RepoResolver
-	Branches         bool
-	CDepReader       CantDepReader
+	RootPath, Gopath  string
+	Resolver          RepoResolver
+	Branches, Sources bool
+	CDepReader        CantDepReader
 }
 
 // ResolveSources for everything in deps, no dependency trees will be
@@ -113,14 +116,14 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 		// Otherwise find the vcs root for it
 		vcs, err := sr.Resolver.ResolveRepo(dep.ImportPath, nil)
 		if err != nil {
-			LogWarn("Skipping dep %+v, %s", dep, err.Error())
+			LogWarn("\t\tSkipping dep %+v, %s", dep, err.Error())
 			continue
 		}
 
 		root := vcs.GetRoot()
 		rootSrc := PackageSource(sr.Gopath, root)
 		if rootSrc == sr.RootPath || PathIsChild(rootSrc, sr.RootPath) {
-			LogVerbose("Skipping pkg %s since its vcs is at our save level", sr.RootPath)
+			LogVerbose("\t\tSkipping pkg %s since its vcs is at our save level", sr.RootPath)
 			continue
 		}
 		source := NewDependencySource(root)
@@ -129,7 +132,7 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 		if sr.Branches {
 			rev, err = vcs.GetBranch()
 			if err != nil {
-				LogWarn("No branch from vcs at %s %s", root, err.Error())
+				LogWarn("\t\tNo branch from vcs at %s %s", root, err.Error())
 			}
 		}
 		if !sr.Branches || err != nil {
@@ -141,25 +144,30 @@ func (sr *SourcesResolver) ResolveSources(deps Dependencies) (*DependencySources
 		source.Revisions.Add(rev)
 		source.OnDiskRevision = rev
 
-		vcsSource, err := vcs.GetSource()
-		if err != nil {
-			return nil, fmt.Errorf("cant get vcs source from vcs at %s %s", root, err.Error())
+		if sr.Sources {
+			LogVerbose("\t\tGetting source for VCS: %s", root)
+			vcsSource, err := vcs.GetSource()
+			if err != nil {
+				return nil, fmt.Errorf("cant get vcs source from vcs at %s %s", root, err.Error())
+			}
+			source.Sources.Add(vcsSource)
+			source.OnDiskSource = vcsSource
 		}
-		source.Sources.Add(vcsSource)
-		source.OnDiskSource = vcsSource
 		source.Deps.AddDependency(dep)
 
 		sources.AddSource(source)
 	}
 
-	// Resolve sources from importpaths
+	// Resolve sources from importpaths, that is any canticle
+	// files stored in a directory imported by our vcs
 	for _, dep := range deps {
 		if err := sr.resolveCantDeps(sources, dep.ImportPath); err != nil {
 			return sources, err
 		}
 	}
 
-	// Resolve any sources from our vcs roots
+	// Resolve any sources from our vcs roots, that is any
+	// canticle files stored at the vcs route of a project.
 	for _, source := range sources.Sources {
 		if err := sr.resolveCantDeps(sources, source.Root); err != nil {
 			return sources, err
@@ -183,6 +191,10 @@ func (sr *SourcesResolver) resolveCantDeps(sources *DependencySources, path stri
 		if source == nil {
 			continue
 		}
+		if !sr.Sources {
+			cdep.SourcePath = ""
+		}
+		LogVerbose("\t\tAdding canticle source %+v", cdep)
 		source.AddCantSource(cdep, path)
 	}
 	return nil

@@ -11,13 +11,14 @@ import (
 )
 
 type Save struct {
-	flags    *flag.FlagSet
-	Verbose  bool
-	DryRun   bool
-	OnDisk   bool
-	Branches bool
-	Excludes DirFlags
-	Resolver ConflictResolver
+	flags     *flag.FlagSet
+	Verbose   bool
+	DryRun    bool
+	OnDisk    bool
+	Branches  bool
+	NoSources bool
+	Excludes  DirFlags
+	Resolver  ConflictResolver
 }
 
 func NewSave() *Save {
@@ -31,6 +32,7 @@ func NewSave() *Save {
 	f.BoolVar(&s.OnDisk, "ondisk", false, "Save the revisions and sources present on disk ignoring all other Canticle files.")
 	f.BoolVar(&s.DryRun, "d", false, "Don't save the deps, just print them.")
 	f.BoolVar(&s.Branches, "b", false, "Save branches for the current projects, not revisions.")
+	f.BoolVar(&s.NoSources, "no-sources", false, "Don't save a sources for the current projects, not revisions.")
 	f.Var(&s.Excludes, "exclude", "Do not recur into these directories when saving unless they are in the dep tree.")
 	return s
 }
@@ -39,7 +41,7 @@ var save = NewSave()
 
 var SaveCommand = &Command{
 	Name:             "save",
-	UsageLine:        "save [-f] [-ondisk] [-d] [-b] [-exclude <dir>] ",
+	UsageLine:        "save [-f] [-ondisk] [-d] [-b] [-exclude <dir>] [-no-sources]",
 	ShortDescription: "Save the current revision of all dependencies in a Canticle file.",
 	LongDescription: `The save command will save the dependencies for a package into a Canticle file.  If at the src level save the current revision of all packages in belows. All dependencies must be present on disk and in the GOROOT. The generated Canticle file will be saved in the packages root directory.
 
@@ -112,6 +114,7 @@ func (s *Save) GetSources(gopath, path string, deps Dependencies) (*DependencySo
 		RootPath:   path,
 		Resolver:   repoResolver,
 		Branches:   s.Branches,
+		Sources:    !s.NoSources,
 		CDepReader: reader,
 	}
 	return sourceResolver.ResolveSources(deps)
