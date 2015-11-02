@@ -521,8 +521,7 @@ func restoreWD(cwd string) {
 
 // PackageVCS wraps the underlying golang.org/x/tools/go/vcs to
 // present the interface we need. It also implements the functionality
-// necessary for SetRev to happen correctly. Multiple PackageVCS _can
-// not be used concurrently_.
+// necessary for SetRev to happen correctly.
 type PackageVCS struct {
 	Repo   *vcs.RepoRoot
 	Gopath string
@@ -533,24 +532,11 @@ func (pv *PackageVCS) UpdateBranch(branch string) (updated bool, update string, 
 	return false, "", errors.New("Not implemented")
 }
 
-func (pv *PackageVCS) cdRoot() {
-	var err error
-	pv.cwd, err = os.Getwd()
-	if err != nil {
-		log.Fatalf("Error getting working directory: %s", err.Error())
-	}
-	err = os.Chdir(path.Join(pv.Gopath, "src"))
-	if err != nil {
-		log.Fatalf("Error changing working directory: %s", err.Error())
-	}
-}
-
 // Create clones the VCS into the location provided by Repo.Root
 func (pv *PackageVCS) Create(rev string) error {
-	pv.cdRoot()
-	defer restoreWD(pv.cwd)
 	v := pv.Repo.VCS
-	if err := v.Create(pv.Repo.Root, pv.Repo.Repo); err != nil {
+	dir := PackageSource(pv.Gopath, pv.Repo.Root)
+	if err := v.Create(dir, pv.Repo.Repo); err != nil {
 		return err
 	}
 	if rev == "" {
