@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" type="image/png" href="canticon.png">
+    <title>Canticle - A Go Dependency Management Tool</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie-emulation-modes-warning.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Custom styles for this template -->
+    <link href="carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="index.html"><img height="40" src="cant.png" /></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="index.html">Home</a></li>
+            <li><a href="about.html">About</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Quick Start Guides<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="quickstart.html#library">Library</a></li>
+                <li><a href="quickstart.html#project">Project</a></li>
+                <li><a href="quickstart.html#workspace">Workspace</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Docs<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li class="dropdown-header">Canticle</li>
+                <li><a href="docs.html#cant"><code>cant</code></a></li>
+                <li role="separator" class="divider"></li>
+                <li class="dropdown-header">Commands</li>
+                <li><a href="docs.html#cantget"><code>cant get</code></a></li>
+                <li><a href="docs.html#cantsave"><code>cant save</code></a></li>
+                <li><a href="docs.html#cantvendor"><code>cant vendor</code></a></li>
+                <li><a href="docs.html#cantgenversion"><code>cant genversion</code></a></li>
+                <li role="separator" class="divider"></li>
+		<li class="dropdown-header">Internals</li>
+                <li><a href="docs.html#canticlefile">Canticle Files</a></li>
+                <li><a href="docs.html#vcs">VCS Commands</a></li>
+              </ul>
+            </li>
+          </ul>
+	  <ul class="nav navbar-nav pull-right">
+            <li class="icon-bar"><a title="sauce" href="http://github.com/comcast/cant"><img src="https://assets.github.com/images/icons/emoji/octocat.png" /></a></li>
+            <li class="icon-bar"><a title="sauce" href="http://careers.stackoverflow.com/company/comcast-viper"><img src="ComcastFrog-VIPER-black.svg" /></a></li>
+	  </ul>
+        </div>
+      </div>
+    </nav> <!-- /navbar -->
+
+    
+    <!-- Jumbotron for main page
+    ================================================== -->
+    <div class="jumbotron">
+      <div class="container text-center">
+        <p><img height="50" src="cant-black.png" /></p>
+        <h1>Manage Your World</h1>
+	<p title="Yeah, that's an oxford comma">Dependency and revision management for Go <br />libraries, projects, and entire microservice frameworks.</p>
+        <p><code>go get github.comcast.com/comcast/cant</code></p>
+      </div>
+    </div><!-- /jumbotron -->
+
+
+    <!-- Marketing messaging and featurettes
+    ================================================== -->
+    <!-- Wrap the rest of the page in another container to center all the content. -->
+
+    <div class="container marketing">
+
+      <!-- Three columns of text below the carousel -->
+      <div class="row">
+        <div class="col-lg-4">
+          <img class="img-circle" src="library.png" alt="Library Icon" width="140" height="140">
+        </div><!-- /.col-lg-4 -->
+        <div class="col-lg-4">
+          <img class="img-circle" src="Git-Icon-Black.png" alt="Git Icon" width="140" height="140">
+        </div><!-- /.col-lg-4 -->
+        <div class="col-lg-4">
+          <img class="img-circle" src="docker-icon.png" alt="Docker Icon" width="140" height="140">
+        </div><!-- /.col-lg-4 -->
+      </div>
+      <div class="row">
+        <div class="col-lg-4">
+          <h2>Manage a Library</h2>
+	  <p class="text-primary">Manage the dependencies of a library, and if necessary, the versions or branches it relies on. <i>Reccomend versions</i>, don't dictate them.<p>
+	  <p class="text-muted">Don't ugly up import paths. Don't make their change sets your change sets. Don't force users to use your version of a lib.</p>
+	</div>
+	<div class="col-lg-4">          
+	  <h2>Manage a Project</h2>
+	  <p class="text-primary">Manage the dependencies of a project. Source external libraries from internal repos. Lock to <i>versions or branches.</i></p>
+	  <p class="text-muted">Don't ugly up your importpaths. Don't make their change sets your change sets. Don't put multiple copies in your VCS. Don't have multiple versions of a library.</p>
+	</div>
+	<div class="col-lg-4">
+	  <h2>Manage Microservices</h2>
+	  <p class="text-primary">Manage the dependencies of all your projects. Source external libraries from internal repos. Lock to versions or branches. Make feature branches across projects. Keep a <i>global view</i> of a changing world.</p>
+	  <p class="text-muted">Don't ugly up your importpaths. Don't make their change sets your change sets. Don't put multiple copies in your VCS. Don't have multiple versions of a library. Don't fight updating every git repo. Don't fight multi-version hell.</p>
+	</div>
+      </div>
+      <div class="row">
+        <div class="col-lg-4">
+          <p><a class="btn btn-default" href="quickstart.html#library" role="button">Library Quick Start &raquo;</a></p>
+	</div>
+        <div class="col-lg-4">
+          <p><a class="btn btn-default" href="quickstart.html#project" role="button">Project Quick Start &raquo;</a></p>
+	</div>
+        <div class="col-lg-4">
+          <p><a class="btn btn-default" href="quickstart.html#workspace" role="button">Workspace Quick Start &raquo;</a></p>
+	</div>
+      </div>
+      <!-- /.row -->
+
+
+      <!-- START THE FEATURETTES -->
+
+      <hr class="featurette-divider">
+      
+      <div class="row featurette">
+        <div class="col-md-7">
+          <h2 class="featurette-heading">Simple. <span class="text-muted">4 Commands.</span></h2>
+          <p class="lead">Canticle endeavors not to get in your way. Four simple and understandable commands. Library management shouldn't be complicated and we try to make sure it's not.</p>
+        </div>
+	<div class="col-md-5 vcenter">
+	  <span class="vcenter">
+	    <p><code>cant get</code></p>
+	    <p><code>cant save</code></p>
+	    <p><code>cant vendor</code></p>
+	    <p><code>cant genversion</code></p>
+	    </span>
+	</div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-7 col-md-push-5">
+          <h2 class="featurette-heading">Microservices &harr; Monoliths. <span class="text-muted">Bringing together two worlds.</span></h2>
+        </div>
+        <div class="col-md-5 col-md-pull-7">
+          <p class="lead indent">Monoliths keep code consistent. Everyone has the same view of the world. Microservices let you move quickly and iterate independently. Canticle lets you do both. Canticle lets you keep many views of the world (my tip & their masters, all the tips, etc.). Canticle keeps shared libraries consistent across microservices.</p>
+        </div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-7">
+          <h2 class="featurette-heading">Works with Git, Mercurial, Subversion, and Bazzar. <span class="text-muted">Get the code where its stored. Don't keep extra copies.</span></h2>
+          <p class="lead">The real world is messy and complicated. Canticle let's you work with all major version control systems.</p>
+        </div>
+        <div class="col-md-5">
+	  <div class="row image-container">
+	    <div class="col-md-5">
+              <img class="img-responsive pull-left" src="	mercurial-logo.png" alt="Mercurial Logo">
+              <img class="img-responsive center-block" src="	git-logo.jpg" alt="Git Logo">
+	    </div>
+	    <div class="col-md-7">
+	      <img class="img-responsive pull-left" src="	subversion-logo.png" alt="Svn Logo">
+	      <img class="img-responsive center-block" src="	bazaar-logo.png" alt="Bazaar Logo">
+	    </div>
+	  </div>
+        </div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-7 col-md-push-5">
+          <h2 class="featurette-heading">Lock or don't. Or lock to branches. <span class="text-muted">All from internal or external repos.</span></h2>
+          <p class="lead">Your project has 5 dependencies. Do you version lock them? Do track a remote branch? Do you update them every time?  Do you keep them internally or externally? Your choice with Canticle. And it's all in a few commands. </p>
+        </div>
+        <div class="col-md-5 col-md-pull-7">
+	  <div class="row image-container">
+            <div class="col-md-4">
+	      <span class="glyphicon glyphicon-lock"> </span>
+	    </div>
+            <div class="col-md-4">
+	      <img src="octicons-git-branch.svg" height="75px" alt="branch"/>
+	    </div>
+	    <div class="col-md-4" alt="inside or outside"><!--
+	      --><span style="font-size: 100px; margin: 10px;">&lt;&gt;</span>
+	    </div>
+	  </div>
+        </div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-7">
+          <h2 class="featurette-heading">Build with confidence. Build with anything. <span class="text-muted">Generate version info for all your dependencies, accesible from your go programs.</span></h2>
+          <p class="lead">That means reproducability, whether you choose to version lock or not. As the version info is exposed to go you can echo to your logs, or provide a rest endpoint. Canticle works with <code>gb</code> or <code>go build</code>, it doesn't get in the way of your exsisting workflows and tools.</p>
+        </div>
+        <div class="col-md-5">
+	  <pre style="margin-top: 60px">BuildInfo: 
+{
+    "BuildTime": "2015-09-09T10:50:30-06:00",
+    "BuildUser": "rfliam",
+    "BuildHost": "localhost.localdomain",
+    "Revision": "7742e96f6026f8b194771e360a3b982c74840862",
+    "CanticleDeps": [
+        {
+            "SourcePath": "https://go.googlesource.com/tools",
+            "Root": "golang.org/x/tools",
+            "Revision": "e4a1c78f0f69fbde8bb74f5e9f4adb037a68d753"
+        }
+    ]
+}</pre>
+        </div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <!-- /END THE FEATURETTES -->
+
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- Just to make our placeholder images work. Don't actually copy the next line! -->
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie10-viewport-bug-workaround.js"></script>
+  </body>
+</html>

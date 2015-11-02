@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="favicon.ico">
+
+    <title>Canticle</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie-emulation-modes-warning.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Custom styles for this template -->
+    <link href="carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="index.html"><img height="40" src="cant.png" /></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li class="active"><a href="about.html">About</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Quick Start Guides<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="quickstart.html#library">Library</a></li>
+                <li><a href="quickstart.html#project">Project</a></li>
+                <li><a href="quickstart.html#workspace">Workspace</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Docs<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+		<li class="dropdown-header">Canticle</li>
+                <li><a href="docs.html#cant"><code>cant</code></a></li>
+                <li role="separator" class="divider"></li>
+                <li class="dropdown-header">Commands</li>
+                <li><a href="docs.html#cantget"><code>cant get</code></a></li>
+                <li><a href="docs.html#cantsave"><code>cant save</code></a></li>
+                <li><a href="docs.html#cantvendor"><code>cant vendor</code></a></li>
+                <li><a href="docs.html#cantgenversion"><code>cant genversion</code></a></li>
+                <li role="separator" class="divider"></li>
+		<li class="dropdown-header">Internals</li>
+                <li><a href="docs.html#canticlefile">Canticle Files</a></li>
+                <li><a href="docs.html#vcs">VCS Commands</a></li>
+              </ul>
+            </li>
+          </ul>
+	  <ul class="nav navbar-nav pull-right">
+            <li class="icon-bar"><a title="sauce" href="http://github.com/comcast/cant"><img src="https://assets.github.com/images/icons/emoji/octocat.png" /></a></li>
+            <li class="icon-bar"><a title="sauce" href="http://careers.stackoverflow.com/company/comcast-viper"><img src="ComcastFrog-VIPER-black.svg" /></a></li>
+	  </ul>
+        </div>
+      </div>
+    </nav> <!-- /navbar -->
+
+    <div class="container marketing">
+      <div class="container">
+	<h1 id="library">Library Quick Start</h1>
+	<h2>Manage a Library</h2>
+	<p>As a library maintainer you may need to save a certain revision, tag,
+	  or branch of a project you rely on.</p>
+	<ol>
+	  <li>Checkout out your dependencies using your normal workflow. You can use <code>go get</code>, <code>cant vendor</code>, or <code>gb vendor</code>.</li>
+	  <li>Save the deps and versions using the <a href="docs.html#cantsave">save</a> command. At the root of your project run:</li>
+	  <pre>cant save -no-sources</pre>
+	  
+	  If you want to save a branch (say release/1.2.0) just run:
+	  <pre>cant save -b -no-sources</pre>
+	  <li>Commit the <code>Canticle</code> file.</li>
+	</ol>
+	<h3>What's Happening</h3>
+	<p>In the first example we run <code>cant save -no-sources</code>. This code walks our dependency tree and saves the current revisions of each VCS. The result is saved in our <code>Canticle</code> file. The <code>-no-sources</code> flag tells Canticle not to save where the the repo was checked out from. Users of your library may want to source it from somewhere else (say in a private git repo).</p>
+	<p><code>cant save</code> also walks <i>down</i> the folder hierarchy. This means even if you have no buildable go files in the root of your project, or part of the project isn't imported by the main, its dependencies will still be included. To not traverese into a directory use `-exclude &lt;dir&gt;`.</p>
+	<h2>Use a Library</h2>
+	<ol>
+	  <li>Vendor a library and its suggested dependencies: <pre>cant vendor &lt;package name&gt;</pre></li>
+	  <li>Save the dependency information for your <a href="#project">project</a>.</li>
+	</ol>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div>
+	<h1 id="project">Project Quickstart</h1>
+	<h2>Manage a Project</h2>
+	<p>If you maintain a single project with many dependencies for your
+	  company it: probably needs to be checked into an internal rep and
+	  probably needs revision locks. For this we:</p>
+
+	<ol>
+	  <li>Vendor the dependency using the <a href="docs.html#cantvendor">vendor</a> command:
+	    <pre>cant vendor &lt;external_repo&gt;</pre>
+	  </li>
+	  <li>(Optional) Import a copy into your internal repos. In git we might do this
+like so:
+<pre>git remote rm origin
+git remote add origin &lt;internal_repo&gt;
+git push -u origin --all</pre>
+	  </li>
+
+	  <li>Save the project deps:
+<pre>cd $GOHOME/&lt;your_project&gt;
+cant save</pre>
+	    If conflicts exists (multiple specified vcs sources or revisions) you
+	    will be prompted for resolution. To prefer whats on disk now simply do
+	    <code>cant save -ondisk</code>.
+	  </li>
+	  
+	  <li>Check in the resulting <code>Canticle</code> file.</li>
+
+	  <li>Work with the project like normal. New developers can simply:
+<pre>cd $GOHOME/&lt;your_project&gt;
+cant get</pre>
+	    and all of your repos will be pulled at the correct revision, from the
+	    correct source (your internal repo).
+	  </li>
+	</ol>
+	<h2>Use a Project</h2>
+	<ol>
+	  <li>Get a project dependencies. Go to the project directory and use the <a href="docs.html#cantget">get</a> command:
+<pre>cd $GOHOME/&lt;your_project&gt
+cant get</pre></li>
+	  <li>Generate build information using <a href="docs.html#cantgenversion">genversion</a>. Go the the package main for the project:
+<pre>cant genversion
+git add buildinfo/buildinfo.go
+git commit -m "Add base for generated build info"
+</pre> </li>
+	  <li>If you need to update a dependency checkout the revision you want and got to step 3 of "Manage a Project".</li>
+	</ol>
+      </div>
+
+      <hr class="featurette-divider">
+      <div>
+	<h1 id="workspace">Workspace Quickstart</h1>
+	<h2>Manage a Workspace</h2>
+	<p>If you have a microservice architecture you probably need to
+	  manage the version of a lot of artifacts at once. Many of them
+	  may share common build time dependencies which should be version
+	  locked across projects. Canticle lets you version a workspace as
+	  well.</p>
+	<ol>
+	  <li>Go to the <code>src</code> directory of your workspace <pre>cd $GOHOME/src</pre></li>
+	  <li>Save the versions of your workspace. Exclude directories
+	    whose deps don't matter to your project.
+	    <pre>cant save -b -exclude golang.org -exclude github.com</pre></li>
+	  <li>Check in your workspace. It should be rooted at $GOHOME. In git we would do this:
+	    <pre>cd $GOHOME
+git init
+git add src/Canticle
+git commit -m "Initial commit"</pre>
+	  </li>
+	</ol>
+	<h3>What's Happening</h3>
+	<p> We are saving just the deps in the workspace we care
+	  about. For example many projects rely
+	  on <code>golang.org/x/net/context</code>, but they won't
+	  want to keep every dependency of <code>x/net</code>. If a
+	  package is in the dependency graph for a project it will
+	  still be saved. So if you use <code>x/net</code> it will be
+	  saved, but not the dependencies not directly related to the
+	  project.
+	</p>
+	<p>In addition we have specified <code>-b</code> to save
+	branches where we can. That means only the projects you want
+	revison locked will be.</p>
+	<h2>Use a Workspace</h2>
+	<ol>
+	  <li>To use a workspace check it out, go into
+	the <code>src</code> directory and use Canticle to pull all
+	projects and dependencies.
+	    <pre>cd &lt;project&gt;/src
+cant get</pre></li>
+	  <li>Update the workspace frequently: 
+	    <pre>cd &lt;project&gt;/src
+cant get -u</pre></li>
+	  <li>Change multiple projects and ask for a code
+	  reviews. Save your changes on branches for each repo and
+	  follow the steps in "Manage a workspace".</li>
+	</ol>
+	
+      </div>
+      <hr class="featurette-divider">
+
+    </div>
+
+
+    <div class="container marketing">
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- Just to make our placeholder images work. Don't actually copy the next line! -->
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie10-viewport-bug-workaround.js"></script>
+  </body>
+</html>

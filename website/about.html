@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="favicon.ico">
+
+    <title>Canticle</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie-emulation-modes-warning.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Custom styles for this template -->
+    <link href="carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="index.html"><img height="40" src="cant.png" /></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li class="active"><a href="about.html">About</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Quick Start Guides<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="quickstart.html#library">Library</a></li>
+                <li><a href="quickstart.html#project">Project</a></li>
+                <li><a href="quickstart.html#workspace">Workspace</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Docs<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+		<li class="dropdown-header">Canticle</li>
+                <li><a href="docs.html#cant"><code>cant</code></a></li>
+                <li role="separator" class="divider"></li>
+                <li class="dropdown-header">Commands</li>
+                <li><a href="docs.html#cantget"><code>cant get</code></a></li>
+                <li><a href="docs.html#cantsave"><code>cant save</code></a></li>
+                <li><a href="docs.html#cantvendor"><code>cant vendor</code></a></li>
+                <li><a href="docs.html#cantgenversion"><code>cant genversion</code></a></li>
+                <li role="separator" class="divider"></li>
+		<li class="dropdown-header">Internals</li>
+                <li><a href="docs.html#canticlefile">Canticle Files</a></li>
+                <li><a href="docs.html#vcs">VCS Commands</a></li>
+              </ul>
+            </li>
+          </ul>
+	  <ul class="nav navbar-nav pull-right">
+            <li class="icon-bar"><a title="sauce" href="http://github.com/comcast/cant"><img src="https://assets.github.com/images/icons/emoji/octocat.png" /></a></li>
+            <li class="icon-bar"><a title="sauce" href="http://careers.stackoverflow.com/company/comcast-viper"><img src="ComcastFrog-VIPER-black.svg" /></a></li>
+	  </ul>
+        </div>
+      </div>
+    </nav> <!-- /navbar -->
+
+
+    <!-- Marketing messaging and featurettes
+    ================================================== -->
+   <!-- Wrap the rest of the page in another container to center all the content. -->
+
+    <div class="container marketing">
+
+      <div>
+	<h1>About Canticle</h1>
+	<p>Canticle is an open source dependency management project initially developed by <a href="http://corporate.comcast.com/">Comcast's</a> <a href="http://careers.stackoverflow.com/company/comcast-viper">VIPER</a> team. It is <a href="http://www.apache.org/licenses/LICENSE-2.0">apache 2.0 licensed</a>.</p>
+	<h2>Getting Help</h2>
+	<p>The best way to ask for help is on the <a href="http://github.com/comcast/cant">Canticle github site</a>.</p>
+
+	<h1>Project Status: <code>Beta</code></h1>
+	<p>Canticle is currently in beta. However, Comcast VIPER uses
+	  it to manage hundreds of thousands of lines of go code that
+	  span tens of projects.</p>
+	<h2>Limitations</h2>
+	<p>Canticle currently <i>does not</i> support the go1.5 vendor
+	or gb vendor folders. Support for this feature will be added
+	in the future.</p>
+	<p.>The branches behavior of the save command is currently
+	only supported for git. Support is planned for this soon.</p>
+      </div>
+
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- Just to make our placeholder images work. Don't actually copy the next line! -->
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie10-viewport-bug-workaround.js"></script>
+  </body>
+</html>
