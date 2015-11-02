@@ -283,8 +283,8 @@ func VisibleSubDirectories(dirname string) ([]string, error) {
 
 func ProjectRoot(dirname string) string {
 	list := strings.Split(filepath.ToSlash(dirname), "/")
-	for i, part := range list {
-		if part == "src" {
+	for i := len(list) - 1; i > 0; i-- {
+		if list[i] == "src" {
 			list = append([]string{"/"}, list[:i]...)
 			return path.Join(list...)
 		}

@@ -58,4 +58,28 @@ func TestEnvGoPath(t *testing.T) {
 		t.Errorf("Expected path %s with a valid GB workspace, got %s", testHome, path)
 	}
 
+	// Create a "nested" gb workspace
+	if err := os.MkdirAll(filepath.Join(testHome, "src", "nested", "src", "github.com", "comcast", "cant"), 0755); err != nil {
+		t.Fatalf("Error creating tempdir sub folders: %s", err.Error())
+	}
+	wspace := filepath.Join(testHome, "src", "nested")
+	if err := os.Chdir(filepath.Join(wspace, "src")); err != nil {
+		t.Fatalf("Could not chdir to created tmpdir: %s", err.Error())
+	}
+	path, err = EnvGoPath()
+	if err != nil {
+		t.Errorf("Expected no error when getting envgopath in a GB workspace, got %s", err.Error())
+	}
+	if path != wspace {
+		t.Errorf("Expected path %s with a valid GB workspace, got %s", testHome, path)
+	}
+
+	// Try an invalid spot
+	if err := os.Chdir(os.TempDir()); err != nil {
+		t.Fatalf("Could not chdir to created tmpdir: %s", err.Error())
+	}
+	path, err = EnvGoPath()
+	if err == nil {
+		t.Errorf("Expected an error when getting envgopath in an valid workspace, got")
+	}
 }
