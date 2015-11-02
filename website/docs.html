@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="favicon.ico">
+
+    <title>Canticle</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie-emulation-modes-warning.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Custom styles for this template -->
+    <link href="carousel.css" rel="stylesheet">
+  </head>
+<!-- NAVBAR
+================================================== -->
+  <body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="index.html"><img height="40" src="cant.png" /></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li class="active"><a href="about.html">About</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Quick Start Guides<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="quickstart.html#library">Library</a></li>
+                <li><a href="quickstart.html#project">Project</a></li>
+                <li><a href="quickstart.html#workspace">Workspace</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Docs<span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li class="dropdown-header">Canticle</li>
+                <li><a href="docs.html#cant"><code>cant</code></a></li>
+                <li role="separator" class="divider"></li>
+                <li class="dropdown-header">Commands</li>
+                <li><a href="docs.html#cantget"><code>cant get</code></a></li>
+                <li><a href="docs.html#cantsave"><code>cant save</code></a></li>
+                <li><a href="docs.html#cantvendor"><code>cant vendor</code></a></li>
+                <li><a href="docs.html#cantgenversion"><code>cant genversion</code></a></li>
+                <li role="separator" class="divider"></li>
+		<li class="dropdown-header">Internals</li>
+                <li><a href="docs.html#canticlefile">Canticle Files</a></li>
+                <li><a href="docs.html#vcs">VCS Commands</a></li>
+              </ul>
+            </li>
+          </ul>
+	  <ul class="nav navbar-nav pull-right">
+            <li class="icon-bar"><a title="sauce" href="http://github.com/comcast/cant"><img src="https://assets.github.com/images/icons/emoji/octocat.png" /></a></li>
+            <li class="icon-bar"><a title="sauce" href="http://careers.stackoverflow.com/company/comcast-viper"><img src="ComcastFrog-VIPER-black.svg" /></a></li>
+	  </ul>
+        </div>
+      </div>
+    </nav> <!-- /navbar -->
+
+
+    <!-- Marketing messaging and featurettes
+    ================================================== -->
+    <!-- Wrap the rest of the page in another container to center all the content. -->
+
+    <div class="container marketing">
+      <div>
+	<h1 id="cant"><code>cant</code></h>
+	<h2>Description</h2>
+	<p>The cant command wraps the <a href="#commands">commands</a>
+	  below. They are issued as <code>cant get</code>, <code>cant
+	  save</code>, <code>cant vendor</code>, and <code>cant
+	  genversion</code>.</p>
+	<h2>Options</h2>
+	<ul>
+	  <li><code>-version</code> Print the version information for Canticle.</li>
+	  <li><code>-h</code> Print the help for this command.</p></li>
+	</ul>
+      </div>
+
+      <hr class="featurette-divider">
+      <div id="commands">
+	<h1 id="cantget"><code>get</code></h1>
+	<h2>Description</h2>
+	<p>The get command fetches the items in the Canticle file, and
+	sets them to the revisions in the Canticle
+	file. If <code>-u</code> is specified the get command will
+	attempt to update any branches to the latest remote version.</p>
+	<p>Fetches are performed in parallel with get. Get will report
+	any failures fetching or updating the listed
+	projects. However, it will not halt on errors. Rather it
+	reports them after all items in the Canticle file have been
+	fetched or updated.</p>
+	<p>Get fetches items from the <code>SourcePath</code>
+	attributed of the Canticle file into the <code>Root</code>
+	specified by that item. If a revision is set it will attempt
+	to set the repo to that revision, branch, or tag. If no
+	sourcepath is specified it will attempt to use the same
+	discovery mechanisms as <code>go get</code> to fetch the
+	project. If no revision is specified the default branch
+	(master for git) will be used.</p>
+	<h2>Options</h2>
+	<ul>
+	  <li><code>-u</code> Attempt to update any branch to the latest remote version. Only non-destructive updates will be performed.</li>
+	  <li><code>-v</code> Print a verbose set of operations preformed.</li>
+	  <li><code>-h</code> Print the help for this command.</p></li>
+	</ul>
+      </div>
+
+      <hr class="featurette-divider">
+      <div>
+	<h1 id="cantsave"><code>save</code></h1>
+	<h2>Description</h2>
+	<p>Save walks the dependency graph and file tree for packages
+	  at and below where it is issued. This means when you run
+	  save in a directory all packages in folders underneath that
+	  directory are searched. Folders with no buildable go sources
+	  are ignored. The dependency graph is then searched. The
+	  result of save is a set of version control system (VCS)
+	  roots.</p>
+	<p>If <code>-exclude &lt;dir&gt;</code> is issued save will
+	  not walk into this directory, or it subdirectories, when
+	  walking the file hierarchy. However, if a package is imported
+	  from another directory it will still be included.</p>
+	<p>Canticle examines the sources and revisions of each VCS
+	  system on disk. If other Canticle files appear in the search
+	  path this may result in conflicts. By default save will
+	  prompt the user to choose a version. If <code>-ondisk</code>
+	  is added it will use the revisions currently on disk. Note
+	  setting a revision in save <i>does not</i> update it. To do
+	  this you must issue get.</p>
+	<p>Save uses an exact commit to save (git commit hash, svn
+	  revision, hg commit id, bzr revision). A preference for
+	  named branches or tags can be specified
+	  with <code>-b</code>. In git these are any refs
+	  under <code>refs/heads/</code>
+	  or <code>refs/remotes/</code>. The branches feature is
+	  currently not implemented for other VCS but is planned. </p>
+	<h2>Options</h2>
+	<ul>
+	  <li><code>-d</code> Print the generated Canticle file, don't save it.</li>
+	  <li><code>-b</code> Prefer branches for revisions in the generated Canticle file.</li>
+	  <li><code>-ondisk</code> Use the revisions and sources currently ondisk.</li>
+	  <li><code>-no-sources</code> Do not save the source url of VCS repos. Useful for library maintainers.</li>
+	  <li><code>-v</code> Print a verbose set of operations performed.</li>
+	  <li><code>-h</code> Print the help for this command.</p></li>
+	</ul>
+      </div>
+
+      <hr class="featurette-divider">
+      <div>
+	<h1 id="cantvendor"><code>vendor</code></h1>
+	<h2>Description</h2>
+	<p>Vendor fetches a dependency and all of its
+	dependencies. They are placed into the workspace in the same
+	manner as <code>go get</code>. Dependencies already on disk
+	will not be overwritten. Use save and then get to force the
+	checkout of the appropriate versions for the vendored
+	item.</p>
+	<p>Vendor can take an input Canticle file to force certain
+	dependencies to come from other sources and revisions
+	instead. This is the <code>-s</code> option.</p>
+	<h2>Options</h2>
+	<ul>
+	  <li><code>-s</code> Use the specified Canticle file to override the source(s) of fetched libraries.</li>
+	  <li><code>-v</code> Print a verbose set of operations performed.</li>
+	  <li><code>-h</code> Print the help for this command.</p></li>
+	</ul>
+      </div>
+
+      <hr class="featurette-divider">
+      <div>
+	<h1 id="genversion"><code>genversion</code></h1>
+	<h2>Description</h2>
+	<p>Genversion generates build time verison information for
+	inclusion with your project. This is important for dynamic
+	workspaces (such as being tied to masters). This allows code
+	bases to be both reproducable and continuously released.</p>
+	<p>Genversion does not require a link dependency on
+	Canticle. The generated version information will be entirely
+	contained in the buildinfo package. This is also type safe
+	information.</p>
+	<h2>Usage</h2>
+	<p>The <a href="">Canticle main file</a> has a good example of usage. In short you must:
+	  <ul>
+	    <li>Call genversion.</li>
+	    <li>Check in the buildinfo/info.go file that is generated, but <i>not</i> buildinfo.go.</li>
+	    <li>Import the buildinfo package.</li>
+	    <li>Use <code>buildinfo.GetBuildInfo()</code></li>
+	  </ul>
+	  The buildinfo will contain BuildTime, User, Host, and the
+	  local repo Revision. It also includes CanticleDeps which is
+	  a <code>*json.RawMessage</code> to prevent adding types.
+	</p>
+      </div>
+      <!-- FOOTER -->
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+      </footer>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- Just to make our placeholder images work. Don't actually copy the next line! -->
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/ie10-viewport-bug-workaround.js"></script>
+  </body>
+</html>
