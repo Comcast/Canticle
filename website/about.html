@@ -101,6 +101,59 @@
 	only supported for git. Support is planned for this soon.</p>
       </div>
 
+      <hr class="featurette-divider">
+      <div id="Rationale">
+	<h1>Rationale</h1>
+	<h2>Desired Features</h2>
+	<p>Canticle was originally built to support:
+	  <ul>
+	    <li>Vendoring - <span class="text-muted">Keeping an internal copy of external code.</span></li>
+	    <li>Version Locking - <span class="text-muted">Using a specific version of a dependent library.</span>
+</li>
+	    <li>Vanity Import Paths - <span class="text-muted">Using the import paths as they where originally written and intend.</span></li>
+	    <li>Single Copy - <span class="text-muted">Not using multiple copies of a library internally.</span></li>
+	    <li>Build Information - <span class="text-muted">Making sure any build can be
+	    exactly replicated using information embedded in it.</span></li>
+	  </ul>
+	  </p>
+	<h2>Canticle's Take</h2>
+	<p>Vendoring and version locking are are necessities for
+	reproduce-able builds. Vendoring means keeping a copy of
+	external code internally. It <i>doesn't</i> mean keeping a
+	copy of the external code <i>in your code</i>. Canticle let's
+	you keep a copy of the code in your <i>internal vcs</i>
+	without checking it in with your code.</p>
+	<p>For example you can keep one copy of the go-mysql-driver in
+	your internal Gitlab or Github. Canticle then makes it so all
+	projects rely on the internal copies of that library. If your
+	projects need to rely on different versions the version
+	locking features take care of that.</p>
+	<p>You don't end up with multiple import paths or multiple
+	copies of the repo in the code base. You don't end up with 30
+	copies of code you must update when a critical bug is
+	found. Change sets to an opensource project can be pulled in
+	continuously <i>without</i> loosing build predictability
+	(through <a href="docs.html#cantgenversion">genversion</a>).</p>
+	<p>Keeping copies of external libraries code base in a
+	projects VCS is simply not sustainable. Either libraries
+	fall quickly out of sync or require periodic updates of that
+	copied code. This makes a mess out of commit history. It is a
+	painful and error prone processes.</p>
+	<p>Even worse it simply does not support some uses cases. If
+	12 microservices rely on a single core library (say
+	protocolbuffer schema) that library <i>can't</i> be copied
+	into every project and kept up to date in a usable
+	manner. That means one change requires manually updating code
+	in 12 places. The Canticle workspace concept is built to work
+	with this and with continuously deployed systems.</p>
+	<p>Canticle's vendoring system was inspired by the <code>go
+	get</code> syntax websites use to map a logical library into a
+	VCS command. A Canticle file basically
+	says fetch the "SourcePath" into the "Root" of a project at
+	the "Revision".</p>
+	  
+      </div>
+
       <!-- FOOTER -->
       <footer>
         <p class="pull-right"><a href="#">Back to top</a></p>
