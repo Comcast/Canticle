@@ -6,6 +6,7 @@ go get $vcstools
 mkdir -p $cantdir
 git clone git@github.comcast.com:viper-cog/cant.git $cantdir
 pushd $cantdir
+git checkout cant2.0
 go build
 ./cant genversion
 go build
