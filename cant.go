@@ -8,8 +8,8 @@ import (
 	"os"
 	"text/template"
 
-	"github.comcast.com/viper-cog/cant/buildinfo"
-	"github.comcast.com/viper-cog/cant/canticles"
+	"github.com/Comcast/Canticle/buildinfo"
+	"github.com/Comcast/Canticle/canticles"
 )
 
 // Canticle will:
