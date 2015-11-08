@@ -13,5 +13,5 @@ want to check out the [rationale](http://canticle.io/about.html#rationale).
 Prerequisite: It is assumed that your GO environment is already configured properly (ie. set GOPATH).
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Comcast/Canticle/master/install.sh
+curl -fsSL https://raw.githubusercontent.com/Comcast/Canticle/master/install.sh | sh
 ```
