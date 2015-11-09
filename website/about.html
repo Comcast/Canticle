@@ -90,7 +90,7 @@
 	initially developed
 	by <a href="http://corporate.comcast.com/">Comcast's</a> <a href="http://careers.stackoverflow.com/company/comcast-viper">VIPER</a>
 	team. It
-	is <a href="http://www.apache.org/licenses/LICENSE-2.0">apache
+	is <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache
 	2.0 licensed</a>.</p> The Comcast VIPER logo and Comcast name
 	are property of Comcast. The Github Octocat is property of
 	Github. The Canticle Logo is issued
@@ -162,9 +162,14 @@
 	with this and with continuously deployed systems.</p>
 	<p>Canticle's vendoring system was inspired by the <code>go
 	get</code> syntax websites use to map a logical library into a
-	VCS command. A Canticle file basically
-	says fetch the "SourcePath" into the "Root" of a project at
-	the "Revision".</p>
+	VCS command. A Canticle file basically says fetch the
+	"SourcePath" into the "Root" of a project at the
+	"Revision".</p>
+	<p>Canticle is also designed to support something no existing
+	tool does, large multi-team workspaces. Maintaining a version
+	lock and vendor file for a single project is not sustainable
+	when a code base spans tens of independent libraries and
+	projects. Canticle's workspace concept supports this.</p>
 	  
       </div>
 
