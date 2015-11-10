@@ -130,21 +130,20 @@
 	<h1 id="cantsave"><code>save</code></h1>
 	<h2>Description</h2>
 	<p>Save walks the dependency graph and file tree for packages
-	  at and below where it is issued. This means when you run
-	  save in a directory all packages in folders underneath that
-	  directory are searched. Folders with no buildable go sources
-	  are ignored. The dependency graph is then searched. The
-	  result of save is a set of version control system (VCS)
-	  roots.</p>
-	<p>If <code>-exclude &lt;dir&gt;</code> is issued save will
-	  not walk into this directory, or it subdirectories, when
+	  at and below where it is issued. When you run save in a directory,
+	  all packages in folders underneath that directory are searched. 
+	  Folders with no buildable go sources are ignored. The dependency 
+	  graph is then searched. The result of save is a set of version
+	  control system (VCS) roots.</p>
+	<p>If <code>-exclude &lt;dir&gt;</code> is issued, save will
+	  not walk into this directory or it subdirectories when
 	  walking the file hierarchy. However, if a package is imported
-	  from another directory it will still be included.</p>
+	  from another directory, it will still be included.</p>
 	<p>Canticle examines the sources and revisions of each VCS
 	  system on disk. If other Canticle files appear in the search
-	  path this may result in conflicts. By default save will
+	  path, these may result in conflicts. By default save will
 	  prompt the user to choose a version. If <code>-ondisk</code>
-	  is added it will use the revisions currently on disk. Note
+	  is added, it will use the revisions currently on disk. Note:
 	  setting a revision in save <i>does not</i> update it. To do
 	  this you must issue get.</p>
 	<p>Save uses an exact commit to save (git commit hash, svn
@@ -176,8 +175,8 @@
 	checkout of the appropriate versions for the vendored
 	item.</p>
 	<p>Vendor can take an input Canticle file to force certain
-	dependencies to come from other sources and revisions
-	instead. This is the <code>-s</code> option.</p>
+	dependencies to come from other sources and revisions. 
+	This is the <code>-s</code> option.</p>
 	<h2>Options</h2>
 	<ul>
 	  <li><code>-s</code> Use the specified Canticle file to override the source(s) of fetched libraries.</li>
