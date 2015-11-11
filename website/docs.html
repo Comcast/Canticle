@@ -158,7 +158,7 @@
 	<ul>
 	  <li><code>-d</code> Print the generated Canticle file, don't save it.</li>
 	  <li><code>-b</code> Prefer branches for revisions in the generated Canticle file.</li>
-	  <li><code>-ondisk</code> Use the revisions and sources currently ondisk.</li>
+	  <li><code>-ondisk</code> Use the revisions and sources currently on disk.</li>
 	  <li><code>-no-sources</code> Do not save the source url of VCS repos. Useful for library maintainers.</li>
 	  <li><code>-v</code> Print a verbose set of operations performed.</li>
 	  <li><code>-h</code> Print the help for this command.</p></li>
@@ -190,10 +190,10 @@
       <div>
 	<h1 id="genversion"><code>genversion</code></h1>
 	<h2>Description</h2>
-	<p>Genversion generates build time verison information for
+	<p>Genversion generates build time version information for
 	inclusion with your project. This is important for dynamic
 	workspaces (such as being tied to masters). This allows code
-	bases to be both reproducable and continuously released.</p>
+	bases to be both reproducible and continuously released.</p>
 	<p>Genversion does not require a link dependency on
 	Canticle. The generated version information will be entirely
 	contained in the buildinfo package. This is also type safe
