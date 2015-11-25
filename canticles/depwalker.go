@@ -142,9 +142,10 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	}
 
 	// Load all the deps for this file directly
-	deps, err := dl.readDeps(pkg)
+	LogVerbose("DepLoader reading deps of path: %s", path)
+	deps, err := dl.readDeps(path)
 	if err != nil {
-		return fmt.Errorf("cant fetch package %s couldn't read deps %s", pkg, err.Error())
+		return fmt.Errorf("package %s couldn't read deps %s", pkg, err.Error())
 	}
 	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
 
