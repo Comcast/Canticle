@@ -13,9 +13,9 @@ func TestCanticleDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.CanticleDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.CanticleDependencies("github.com/Comcast/Canticle")
 	if err != nil {
-		t.Errorf("Error reading valid Canticle file %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
+		t.Errorf("Error reading valid Canticle file %s error: %s", "github.com/Comcast/Canticle", err.Error())
 	}
 	if deps == nil {
 		t.Errorf("ReadCanticleDependencies should never return nil deps")
@@ -193,9 +193,9 @@ func TestReadRemoteDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.ReadRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.ReadRemoteDependencies("github.com/Comcast/Canticle")
 	if err != nil {
-		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
+		t.Errorf("Error reading remotes for valid package %s error: %s", "github.com/Comcast/Canticle", err.Error())
 	}
 	if deps == nil {
 		t.Errorf("ReadRemoteDependencies should never return nil deps")
@@ -205,7 +205,7 @@ func TestReadRemoteDependencies(t *testing.T) {
 		t.Errorf("ReadRemoteDependencies read incorrect number of deps")
 	}
 
-	expected := "github.comcast.com/viper-cog/cant/canticles"
+	expected := "github.com/Comcast/Canticle/canticles"
 	if deps[0] != expected {
 		t.Errorf("ReadCanticleDependencies returned %+v expected %+v", deps[0], expected)
 	}
@@ -227,9 +227,9 @@ func TestReadDependencies(t *testing.T) {
 	dr := &DepReader{os.ExpandEnv("$GOPATH")}
 
 	// Happy path
-	deps, err := dr.GoRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err := dr.GoRemoteDependencies("github.com/Comcast/Canticle/cant")
 	if err != nil {
-		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
+		t.Errorf("Error reading remotes for valid package %s error: %s", "github.com/Comcast/Canticle", err.Error())
 	}
 	if deps == nil {
 		t.Errorf("ReadRemoteDependencies should never return nil deps")
@@ -238,11 +238,11 @@ func TestReadDependencies(t *testing.T) {
 	if len(deps) != 2 {
 		t.Errorf("ReadRemoteDependencies read incorrect number of deps, got %d, expected %d", len(deps), 2)
 	}
-	expected := "github.comcast.com/viper-cog/cant/buildinfo"
+	expected := "github.com/Comcast/Canticle/buildinfo"
 	if expected != deps[0] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[0], expected)
 	}
-	expected = "github.comcast.com/viper-cog/cant/canticles"
+	expected = "github.com/Comcast/Canticle/canticles"
 	if expected != deps[1] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[1], expected)
 	}
@@ -269,8 +269,8 @@ func TestReadDependencies(t *testing.T) {
 	defer os.RemoveAll(testHome)
 
 	// Copy the files over
-	testDir := path.Join(testHome, "src", "github.comcast.com/viper-cog/cant")
-	source := path.Join(os.ExpandEnv("$GOPATH"), "src", "github.comcast.com/viper-cog/cant")
+	testDir := path.Join(testHome, "src", "github.com/Comcast/Canticle")
+	source := path.Join(os.ExpandEnv("$GOPATH"), "src", "github.com/Comcast/Canticle")
 	dc := NewDirCopier(source, testDir)
 	if err := dc.Copy(); err != nil {
 		fmt.Printf("Error copying files %s\n", err.Error())
@@ -278,9 +278,9 @@ func TestReadDependencies(t *testing.T) {
 
 	// Test ourselves
 	dr.Gopath = testHome
-	deps, err = dr.GoRemoteDependencies("github.comcast.com/viper-cog/cant")
+	deps, err = dr.GoRemoteDependencies("github.com/Comcast/Canticle/cant")
 	if err != nil {
-		t.Errorf("Error reading remotes for valid package %s error: %s", "github.comcast.com/viper-cog/cant", err.Error())
+		t.Errorf("Error reading remotes for valid package %s error: %s", "github.com/Comcast/Canticle", err.Error())
 	}
 	if deps == nil {
 		t.Errorf("ReadRemoteDependencies should never return nil deps")
@@ -289,11 +289,11 @@ func TestReadDependencies(t *testing.T) {
 	if len(deps) != 2 {
 		t.Errorf("ReadRemoteDependencies read incorrect number of deps, got %d, expected %d", len(deps), 2)
 	}
-	expected = "github.comcast.com/viper-cog/cant/buildinfo"
+	expected = "github.com/Comcast/Canticle/buildinfo"
 	if expected != deps[0] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[0], expected)
 	}
-	expected = "github.comcast.com/viper-cog/cant/canticles"
+	expected = "github.com/Comcast/Canticle/canticles"
 	if expected != deps[1] {
 		t.Errorf("ReadRemoteDependencies returned %+v expected %+v", deps[1], expected)
 	}

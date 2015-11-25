@@ -172,10 +172,10 @@ func TestDependencyLoader(t *testing.T) {
 	}
 	deps := &TestDependencyReader{
 		map[string]TestDependencyRead{
-			"pkg1":       TestDependencyRead{pkg1dep, nil},
-			"pkg1/child": TestDependencyRead{pkg1childdep, nil},
-			"pkg2":       TestDependencyRead{NewDependencies(), nil},
-			"pkg2/child": TestDependencyRead{NewDependencies(), nil},
+			testHome + "/src/" + "pkg1":       TestDependencyRead{pkg1dep, nil},
+			testHome + "/src/" + "pkg1/child": TestDependencyRead{pkg1childdep, nil},
+			testHome + "/src/" + "pkg2":       TestDependencyRead{NewDependencies(), nil},
+			testHome + "/src/" + "pkg2/child": TestDependencyRead{NewDependencies(), nil},
 		},
 	}
 
@@ -192,7 +192,6 @@ func TestDependencyLoader(t *testing.T) {
 		"pkg2/child": &TestVCSResolve{pkg2vcs, nil},
 	}}
 	dl := NewDependencyLoader(tr, deps.ReadDependencies, cdeps, testHome)
-
 	if err := dl.FetchUpdatePackage("pkg1"); err != nil {
 		t.Errorf("Error fetching pkg1: %s", err.Error())
 	}

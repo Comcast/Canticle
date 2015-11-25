@@ -150,7 +150,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	}
 	LogVerbose("Read package %s deps:\n[\n%+v]", pkg, deps)
 
-	// Setup oour deps
+	// Setup our deps
 	dep := NewDependency(pkg)
 	for _, d := range deps {
 		d.ImportedFrom.Add(pkg)
@@ -159,6 +159,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	for _, pkgDep := range deps {
 		dep.Imports.Add(pkgDep.ImportPath)
 	}
+	LogVerbose("Adding dep %+v\n", dep)
 	dl.deps.AddDependency(dep)
 
 	return nil
