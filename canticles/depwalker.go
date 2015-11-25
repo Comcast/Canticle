@@ -127,6 +127,7 @@ func (dl *DependencyLoader) FetchUpdatePackage(pkg string) error {
 	}
 
 	// Fetch the package
+	LogVerbose("DepLoader check path: %s", path)
 	if !ondisk {
 		// Resolve the vcs using our cdep if available
 		cdep := dl.cdepForPkg(pkg)
@@ -231,6 +232,7 @@ func NewDependencySaver(reader DepReaderFunc, gopath, root string) *DependencySa
 // SavePackageDeps uses the reader to read all 1st order deps of this
 // pkg.
 func (ds *DependencySaver) SavePackageDeps(path string) error {
+	LogVerbose("Examine path %s", path)
 	pkg, err := PackageName(ds.gopath, path)
 	if err != nil {
 		return fmt.Errorf("Error getting package name for path %s", path)
@@ -266,6 +268,7 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 	if len(pkgDeps) == 0 && err != nil {
 		if e, ok := err.(*PackageError); ok {
 			if e.IsNoBuildable() {
+				LogVerbose("Unbuildable pkg")
 				return nil
 			}
 		}
@@ -284,16 +287,17 @@ func (ds *DependencySaver) SavePackageDeps(path string) error {
 	for _, pkgDep := range pkgDeps {
 		dep.Imports.Add(pkgDep.ImportPath)
 	}
+	LogVerbose("Adding dep for pkg %v", dep)
 	ds.deps.AddDependency(dep)
 	return nil
 }
 
 // PackagePaths returns d all import paths for a pkg, and all subdirs
 // if the pkg is under the root of the passed to the ds at construction.
-func (ds *DependencySaver) PackagePaths(pkg string) ([]string, error) {
+func (ds *DependencySaver) PackagePaths(path string) ([]string, error) {
 	paths := NewStringSet()
-	if PathIsChild(ds.root, pkg) {
-		subdirs, err := VisibleSubDirectories(pkg)
+	if PathIsChild(ds.root, path) {
+		subdirs, err := VisibleSubDirectories(path)
 		if err != nil {
 			return []string{}, err
 		}
@@ -301,11 +305,18 @@ func (ds *DependencySaver) PackagePaths(pkg string) ([]string, error) {
 		LogVerbose("Package has subdirs %v", subdirs)
 	}
 	paths.Difference(ds.NoRecur)
+	pkg, err := PackageName(ds.gopath, path)
+	if err != nil {
+		LogVerbose("Package name error %s", err.Error())
+		return []string{}, err
+	}
 	dep := ds.deps.Dependency(pkg)
 	if dep == nil {
+		LogVerbose("Package has no dep %s", pkg)
 		return paths.Array(), nil
 	}
 	if dep.Err != nil {
+		LogVerbose("Package dep err not nil %s %v", pkg, dep.Err)
 		return []string{}, nil
 	}
 	imports := dep.Imports.Array()
