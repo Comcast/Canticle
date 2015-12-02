@@ -22,6 +22,7 @@ type CanticleDepLoader struct {
 	Gopath   string
 	Update   bool
 	updated  map[string]string
+	Limit    int
 }
 
 // FetchPath fetches the dependencies in a Canticle file at path. It
@@ -51,17 +52,28 @@ type update struct {
 // return an array of encountered errors.
 func (cdl *CanticleDepLoader) FetchDeps(cdeps ...*CanticleDependency) []error {
 	cdl.updated = make(map[string]string)
-	results := make(chan update)
+	results := make(chan update, len(cdeps))
+	fetch := make(chan *CanticleDependency)
+	limit := cdl.Limit
+	if limit == 0 {
+		limit = len(cdeps)
+	}
 	var wg sync.WaitGroup
 	var errors []error
-	for _, cdep := range cdeps {
+	for i := 0; i < limit; i++ {
 		wg.Add(1)
-		go func(cdep *CanticleDependency) {
-			rev, err := FetchDep(cdl.Resolver, cdep, cdl.Update)
-			results <- update{cdep, rev, err}
+		go func() {
+			for cdep := range fetch {
+				rev, err := FetchDep(cdl.Resolver, cdep, cdl.Update)
+				results <- update{cdep, rev, err}
+			}
 			wg.Done()
-		}(cdep)
+		}()
 	}
+	for _, cdep := range cdeps {
+		fetch <- cdep
+	}
+	close(fetch)
 	go func() {
 		wg.Wait()
 		close(results)

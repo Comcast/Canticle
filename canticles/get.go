@@ -12,6 +12,7 @@ type Get struct {
 	Verbose bool
 	Update  bool
 	Source  string
+	Limit   int
 }
 
 func NewGet() *Get {
@@ -20,6 +21,7 @@ func NewGet() *Get {
 	f.BoolVar(&g.Verbose, "v", false, "Be verbose when getting stuff")
 	f.BoolVar(&g.Update, "u", false, "Update branches where possible, print the results")
 	f.StringVar(&g.Source, "source", "", "Overide the VCS url to fetch this from")
+	f.IntVar(&g.Limit, "limit", 10, "Limit the number of fetches in flight at once to limit")
 	return g
 }
 
@@ -27,7 +29,7 @@ var get = NewGet()
 
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-v] [-u]",
+	UsageLine:        "get [-v] [-u] [-source] [-limit <n>]",
 	ShortDescription: "download dependencies as defined in the Canticle file",
 	LongDescription: `The get command fetches dependencies. When issued locally it looks...
 
@@ -84,6 +86,7 @@ func (g *Get) GetPackage(path string) error {
 		Resolver: resolver,
 		Gopath:   gopath,
 		Update:   g.Update,
+		Limit:    g.Limit,
 	}
 	if errs := loader.FetchPath(path); len(errs) > 0 {
 		for _, err := range errs {
