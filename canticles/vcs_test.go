@@ -36,10 +36,9 @@ func TestDefaultRepoResolver(t *testing.T) {
 func TestRemoteRepoResolver(t *testing.T) {
 	rr := &RemoteRepoResolver{os.ExpandEnv("$GOPATH")}
 
-	// NOTE: UPDATE ME IF WE EVER MOVE THIS
 	dep := &CanticleDependency{
-		SourcePath: "git@github.comcast.com:viper-cog/cant.git",
-		Root:       "github.comcast.com/viper-cog/cant",
+		SourcePath: "git@github.com:Comcast/Canticle.git",
+		Root:       "github.com/Comcast/Canticle",
 	}
 
 	vcs, err := rr.ResolveRepo(dep.Root, dep)
@@ -50,19 +49,19 @@ func TestRemoteRepoResolver(t *testing.T) {
 		t.Fatalf("RemoteRepoResolverResolveRepo returned nil vcs for repo: %+v", dep)
 	}
 	v := vcs.(*PackageVCS)
-	expectedRoot := "github.comcast.com/viper-cog/cant"
+	expectedRoot := "github.com/Comcast/Canticle"
 	if v.Repo.Root != expectedRoot {
 		t.Errorf("RemoteRepoResolver did not set correct root for repo got %s expected %s", v.Repo.Root, expectedRoot)
 	}
-	expectedURL := "git@github.comcast.com:viper-cog/cant.git"
+	expectedURL := "git@github.com:Comcast/Canticle.git"
 	if v.Repo.Repo != expectedURL {
 		t.Errorf("ResolveRepo did not set correct repo for repo got %s expected %s", v.Repo.Repo, expectedURL)
 	}
 
 	// Try a VCS resolution that just flat fails
 	dep = &CanticleDependency{
-		Root:       "nothere.comcast.com/viper-cog/cant",
-		SourcePath: "git@nothere.comcast.com:viper-cog/cant.git",
+		Root:       "github.com/does_not_exist_xyz/Canticle",
+		SourcePath: "git@github.com:does_not_exist_xyz/Canticle.git",
 	}
 	vcs, err = rr.ResolveRepo(dep.Root, dep)
 	if err == nil {
@@ -82,7 +81,7 @@ func TestLocalRepoResolver(t *testing.T) {
 		LocalPath: gopath,
 	}
 
-	pkg := "github.comcast.com/viper-cog/cant"
+	pkg := "github.com/Comcast/Canticle"
 	vcs, err := lr.ResolveRepo(pkg, nil)
 	if err != nil {
 		t.Errorf("LocalRepoResolver returned error resolving our own package %s", err.Error())
@@ -110,7 +109,36 @@ func TestLocalRepoResolver(t *testing.T) {
 	if v.Cmd.Cmd != "git" {
 		t.Errorf("LocalRepoResolver did not set correct vcs command %s expected %s", v.Cmd.Cmd, "git")
 	}
+}
 
+func TestResolveRootWithNoSlash(t *testing.T) {
+	gopath, err := EnvGoPath()
+	if err != nil {
+		t.Fatalf("Could not get gopath: %s", err.Error())
+	}
+
+	dep := &CanticleDependency{
+		Root: "camlistore.org",
+		SourcePath: "https://camlistore.googlesource.com/camlistore",
+	}
+
+	dr := &DefaultRepoResolver{gopath}
+	_, err = dr.ResolveRepo(dep.Root, dep)
+	if err != nil {
+		t.Errorf("DefaultRepoResolver could not resolve Root that does not contain a slash: %v", err)
+	}
+
+	lr := &LocalRepoResolver{gopath}
+	_, err = lr.ResolveRepo(dep.Root, dep)
+	if err != nil {
+		t.Errorf("LocalRepoResolver could not resolve Root that does not contain a slash: %v", err)
+	}
+
+	rr := &RemoteRepoResolver{gopath}
+	_, err = rr.ResolveRepo(dep.Root, dep)
+	if err != nil {
+		t.Errorf("RemoteRepoResolver could not resolve Root that does not contain a slash: %v", err)
+	}
 }
 
 type TestVCS struct {
@@ -121,6 +149,7 @@ type TestVCS struct {
 	Source  string
 	Root    string
 }
+
 
 func (v *TestVCS) UpdateBranch(branch string) (bool, string, error) {
 	return false, "", nil
