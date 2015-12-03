@@ -26,6 +26,14 @@ func TestEnvGoPath(t *testing.T) {
 	}
 	defer os.RemoveAll(testHome)
 
+	// on OSX, /tmp and /var are symlinked to /private/tmp and /private/var so resolve wd before continuing
+	os.Chdir(testHome)
+	testHome, err = os.Getwd()
+	os.Chdir(wd)
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+
 	if err := os.MkdirAll(filepath.Join(testHome, "src", "github.com", "comcast", "cant"), 0755); err != nil {
 		t.Fatalf("Error creating tempdir sub folders: %s", err.Error())
 	}

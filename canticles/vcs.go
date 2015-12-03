@@ -490,6 +490,7 @@ var VCSTypes = []VCSType{
 	{"ssh://hg@", "ssh", vcs.ByCmd("hg")},
 	{"svn://", "svn", vcs.ByCmd("svn")},
 	{"bzr://", "bzr", vcs.ByCmd("bzr")},
+	{"https://", "https", vcs.ByCmd("git")}, // not so sure this is a good idea
 }
 
 // GuessVCS attempts to guess the VCS given a url. This uses the
@@ -638,7 +639,7 @@ func TrimPathToRoot(importPath, root string) (string, error) {
 // to use the url string.
 func (dr *DefaultRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
 	// We guess our vcs based off our url path if present
-	resolvePath := importPath
+	resolvePath := getResolvePath(importPath)
 
 	LogVerbose("Attempting to use go get vcs for url: %s", resolvePath)
 	vcs.Verbose = Verbose
@@ -668,9 +669,9 @@ type RemoteRepoResolver struct {
 // ResolveRepo on the remoterepo resolver uses our own GuessVCS
 // method. It mostly looks at protocol cues like svn:// and git@.
 func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
-	resolvePath := importPath
+	resolvePath := getResolvePath(importPath)
 	if dep != nil && dep.SourcePath != "" {
-		resolvePath = dep.SourcePath
+		resolvePath = getResolvePath(dep.SourcePath)
 	}
 	// Attempt our internal guessing logic first
 	LogVerbose("Attempting to use default resolver for url: %s", resolvePath)
@@ -694,6 +695,14 @@ func (rr *RemoteRepoResolver) ResolveRepo(importPath string, dep *CanticleDepend
 	return pv, nil
 }
 
+func getResolvePath(importPath string) string {
+	if strings.Contains(importPath, "/") {
+		return importPath
+	} else {
+		return importPath + "/"
+	}
+}
+
 // LocalRepoResolver will attempt to find local copies of a repo in
 // LocalPath (treating it like a gopath) and provide VCS systems for
 // updating them in RemotePath (also treaded like a gopath).
@@ -707,7 +716,7 @@ type LocalRepoResolver struct {
 // *  There was an error stating the directory for the localPkg
 func (lr *LocalRepoResolver) ResolveRepo(pkg string, dep *CanticleDependency) (VCS, error) {
 	LogVerbose("Finding local vcs for package: %s\n", pkg)
-	fullPath := PackageSource(lr.LocalPath, pkg)
+	fullPath := PackageSource(lr.LocalPath, getResolvePath(pkg))
 	s, err := os.Stat(fullPath)
 	switch {
 	case err != nil:
