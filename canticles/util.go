@@ -84,7 +84,7 @@ func PatchEnviroment(env []string, key, value string) []string {
 
 // EnvGoPath returns a proper gopath, if we are inside a gb style
 // 'src/' workspace this gopath is set to the parent of the src dir.
-// If not the enviorment gopath will be used. If neither a log message
+// If not the environment gopath will be used. If neither a log message
 // will be printed on the program will exit.
 func EnvGoPath() (string, error) {
 	gopath := os.Getenv("GOPATH")
