@@ -48,6 +48,12 @@ type VCSCmd struct {
 	ParseRegex *regexp.Regexp
 }
 
+// ShellCmd is used to exec shell commands that can't easily be done through git porcelain commands.
+type ShellCmd struct {
+	Name string
+	Cmd  string
+}
+
 // ExecWithArgs overriden from the default
 func (vc *VCSCmd) ExecWithArgs(repo string, args []string) (string, error) {
 	LogVerbose("Running command: %s %v in dir %s", vc.Cmd, args, repo)
@@ -316,6 +322,11 @@ func GetGitBranches(path string) ([]string, error) {
 			}
 		}
 	}
+	// this adds remote tracking for all the branches.
+	branches := "for branch in `git branch -a | grep remotes | grep -v HEAD | grep -v master`; do git branch --track ${branch##*/} $branch; done"
+	cmd = exec.Command("/bin/bash", "-c", branches)
+	cmd.Start()
+
 	return results, nil
 }
 

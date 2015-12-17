@@ -29,7 +29,7 @@ var get = NewGet()
 
 var GetCommand = &Command{
 	Name:             "get",
-	UsageLine:        "get [-v] [-u] [-source] [-limit <n>]",
+	UsageLine:        "get [-v] [-u] [-source] [-limit <n>] [-track=true]",
 	ShortDescription: "download dependencies as defined in the Canticle file",
 	LongDescription: `The get command fetches dependencies. When issued locally it looks...
 
