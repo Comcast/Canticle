@@ -9,6 +9,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"golang.org/x/tools/go/vcs"
 )
@@ -755,6 +756,7 @@ type resolve struct {
 // MemoizedRepoResolver remembers the results of previously attempted
 // resolutions and will not attempt the same resolution twice.
 type MemoizedRepoResolver struct {
+	sync.RWMutex
 	resolvedPaths map[string]*resolve
 	resolver      RepoResolver
 }
@@ -771,12 +773,16 @@ func NewMemoizedRepoResolver(resolver RepoResolver) *MemoizedRepoResolver {
 // ResolveRepo on a MemoizedRepoResolver will cache the results of its
 // child resolver.
 func (mr *MemoizedRepoResolver) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
+	mr.RLock()
 	r := mr.resolvedPaths[importPath]
+	mr.RUnlock()
 	if r != nil {
 		return r.v, r.err
 	}
 
 	v, err := mr.resolver.ResolveRepo(importPath, dep)
+	mr.Lock()
 	mr.resolvedPaths[importPath] = &resolve{v, err}
+	mr.Unlock()
 	return v, err
 }
