@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path"
 	"regexp"
 	"testing"
 
@@ -118,7 +119,7 @@ func TestResolveRootWithNoSlash(t *testing.T) {
 	}
 
 	dep := &CanticleDependency{
-		Root: "camlistore.org",
+		Root:       "camlistore.org",
 		SourcePath: "https://camlistore.googlesource.com/camlistore",
 	}
 
@@ -128,17 +129,28 @@ func TestResolveRootWithNoSlash(t *testing.T) {
 		t.Errorf("DefaultRepoResolver could not resolve Root that does not contain a slash: %v", err)
 	}
 
-	lr := &LocalRepoResolver{gopath}
-	_, err = lr.ResolveRepo(dep.Root, dep)
-	if err != nil {
-		t.Errorf("LocalRepoResolver could not resolve Root that does not contain a slash: %v", err)
-	}
-
 	rr := &RemoteRepoResolver{gopath}
 	_, err = rr.ResolveRepo(dep.Root, dep)
 	if err != nil {
 		t.Errorf("RemoteRepoResolver could not resolve Root that does not contain a slash: %v", err)
 	}
+
+	// Create a temp test dir for testing no slash local
+	testHome, err := ioutil.TempDir("", "cant-test-src")
+	if err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+	defer os.RemoveAll(testHome)
+	if err := os.MkdirAll(path.Join(testHome, "src", "camlistore.org", ".git"), 0755); err != nil {
+		t.Fatalf("Error creating tempdir: %s", err.Error())
+	}
+
+	lr := &LocalRepoResolver{testHome}
+	_, err = lr.ResolveRepo(dep.Root, dep)
+	if err != nil {
+		t.Errorf("LocalRepoResolver could not resolve Root that does not contain a slash: %v", err)
+	}
+
 }
 
 type TestVCS struct {
@@ -149,7 +161,6 @@ type TestVCS struct {
 	Source  string
 	Root    string
 }
-
 
 func (v *TestVCS) UpdateBranch(branch string) (bool, string, error) {
 	return false, "", nil
