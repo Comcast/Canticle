@@ -2,6 +2,7 @@ package canticles
 
 import (
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -22,6 +23,7 @@ type resolution struct {
 }
 
 type testRepoRes struct {
+	sync.Mutex
 	resolutions map[string]resolution
 	calls       map[string]bool
 }
@@ -34,6 +36,8 @@ func newTestRepoRes(resolutions map[string]resolution) *testRepoRes {
 }
 
 func (rr *testRepoRes) ResolveRepo(importPath string, dep *CanticleDependency) (VCS, error) {
+	rr.Lock()
+	defer rr.Unlock()
 	rr.calls[dep.Root] = true
 	res := rr.resolutions[dep.Root]
 	return res.vcs, res.err
@@ -129,19 +133,26 @@ func TestCantDepLoader(t *testing.T) {
 			t.Errorf("test %s: Expected read on pkg %s, got %s", test.name, test.expectedRead, test.reader.pkg)
 		}
 		for _, dep := range test.reader.deps {
-			if !test.resolver.calls[dep.Root] {
-				t.Errorf("test %s: Expected resolution on dep %v but not found", test.name, dep.Root)
-			}
-			res := test.resolver.resolutions[dep.Root]
-			if res.err != nil {
-				continue
-			}
-			if res.vcs.Created != 1 {
-				t.Errorf("test %s: Expected vcs for dep %s to be created for test, but it was not", test.name, dep.Root)
-			}
-			if res.vcs.Rev != dep.Revision {
-				t.Errorf("test %s: Expected vcs to be created with rev %s got %s", test.name, dep.Revision, res.vcs.Rev)
-			}
+			checkResolutions(t, test, dep)
 		}
 	}
+}
+
+func checkResolutions(t *testing.T, test test, dep *CanticleDependency) {
+	test.resolver.Lock()
+	defer test.resolver.Unlock()
+	if !test.resolver.calls[dep.Root] {
+		t.Errorf("test %s: Expected resolution on dep %v but not found", test.name, dep.Root)
+	}
+	res := test.resolver.resolutions[dep.Root]
+	if res.err != nil {
+		return
+	}
+	if res.vcs.Created != 1 {
+		t.Errorf("test %s: Expected vcs for dep %s to be created for test, but it was not", test.name, dep.Root)
+	}
+	if res.vcs.Rev != dep.Revision {
+		t.Errorf("test %s: Expected vcs to be created with rev %s got %s", test.name, dep.Revision, res.vcs.Rev)
+	}
+
 }
