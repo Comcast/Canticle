@@ -3,7 +3,6 @@ package canticles
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -514,20 +513,12 @@ func GuessVCS(url string) *vcs.Cmd {
 	return nil
 }
 
-func restoreWD(cwd string) {
-	if err := os.Chdir(cwd); err != nil {
-		log.Fatalf("Error restoring working directory: %s", err.Error())
-	}
-
-}
-
 // PackageVCS wraps the underlying golang.org/x/tools/go/vcs to
 // present the interface we need. It also implements the functionality
 // necessary for SetRev to happen correctly.
 type PackageVCS struct {
 	Repo   *vcs.RepoRoot
 	Gopath string
-	cwd    string
 }
 
 func (pv *PackageVCS) UpdateBranch(branch string) (updated bool, update string, err error) {
