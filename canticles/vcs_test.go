@@ -38,8 +38,8 @@ func TestRemoteRepoResolver(t *testing.T) {
 
 	// NOTE: UPDATE ME IF WE EVER MOVE THIS
 	dep := &CanticleDependency{
-		SourcePath: "git@github.comcast.com:viper-cog/cant.git",
-		Root:       "github.comcast.com/viper-cog/cant",
+		SourcePath: "git@github.com:Comcast/Canticle.git",
+		Root:       "github.com/Comcast/Canticle",
 	}
 
 	vcs, err := rr.ResolveRepo(dep.Root, dep)
@@ -50,11 +50,11 @@ func TestRemoteRepoResolver(t *testing.T) {
 		t.Fatalf("RemoteRepoResolverResolveRepo returned nil vcs for repo: %+v", dep)
 	}
 	v := vcs.(*PackageVCS)
-	expectedRoot := "github.comcast.com/viper-cog/cant"
+	expectedRoot := "github.com/Comcast/Canticle"
 	if v.Repo.Root != expectedRoot {
 		t.Errorf("RemoteRepoResolver did not set correct root for repo got %s expected %s", v.Repo.Root, expectedRoot)
 	}
-	expectedURL := "git@github.comcast.com:viper-cog/cant.git"
+	expectedURL := "git@github.com:Comcast/Canticle.git"
 	if v.Repo.Repo != expectedURL {
 		t.Errorf("ResolveRepo did not set correct repo for repo got %s expected %s", v.Repo.Repo, expectedURL)
 	}
@@ -82,7 +82,7 @@ func TestLocalRepoResolver(t *testing.T) {
 		LocalPath: gopath,
 	}
 
-	pkg := "github.comcast.com/viper-cog/cant"
+	pkg := "github.com/Comcast/Canticle"
 	vcs, err := lr.ResolveRepo(pkg, nil)
 	if err != nil {
 		t.Errorf("LocalRepoResolver returned error resolving our own package %s", err.Error())
