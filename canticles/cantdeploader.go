@@ -51,7 +51,7 @@ type update struct {
 // FetchDeps will fetch all of the cdeps passed to it in parallel and
 // return an array of encountered errors.
 func (cdl *CanticleDepLoader) FetchDeps(cdeps ...*CanticleDependency) []error {
-	cdl.updated = make(map[string]string)
+	cdl.updated = make(map[string]string, len(cdeps))
 	results := make(chan update, len(cdeps))
 	fetch := make(chan *CanticleDependency)
 	limit := cdl.Limit
