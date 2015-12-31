@@ -32,7 +32,6 @@ type VCS interface {
 func GitAtVCS() *vcs.Cmd {
 	v := &vcs.Cmd{}
 	*v = *vcs.ByCmd("git")
-	v.Name = "Git@"
 	v.CreateCmd = "clone {repo} {dir}"
 	v.PingCmd = "ls-remote {scheme}@{repo}"
 	v.Scheme = []string{"git"}
@@ -521,8 +520,10 @@ type PackageVCS struct {
 	Gopath string
 }
 
+// UpdateBranch will attempt to construct a local vcs and update that.
 func (pv *PackageVCS) UpdateBranch(branch string) (updated bool, update string, err error) {
-	return false, "", errors.New("Not implemented")
+	lv := NewLocalVCS(pv.Repo.Root, pv.Repo.Root, pv.Gopath, pv.Repo.VCS)
+	return lv.UpdateBranch(branch)
 }
 
 // Create clones the VCS into the location provided by Repo.Root
