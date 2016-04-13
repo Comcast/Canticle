@@ -9,6 +9,7 @@ import (
 type GenVersion struct {
 	flags   *flag.FlagSet
 	Verbose bool
+	Stable  bool
 }
 
 func NewGenVersion() *GenVersion {
@@ -17,6 +18,7 @@ func NewGenVersion() *GenVersion {
 		flags: f,
 	}
 	f.BoolVar(&v.Verbose, "v", false, "Be verbose when getting stuff")
+	f.BoolVar(&v.Stable, "stable", false, "When true, not generate date or host build info so builds can be stable")
 	return v
 }
 
@@ -26,8 +28,7 @@ var GenVersionCommand = &Command{
 	Name:             "genversion",
 	UsageLine:        "genversion [-v] [path]",
 	ShortDescription: "Generate a version go package containing revision of all current dependencies.",
-	LongDescription: `The genversion command will generate a package containing all deps for path for use
-in reporting version information in built applications.
+	LongDescription: `The genversion command will generate a package containing all deps from the current path for use in reporting version information in built applications.
 
 Specify -v to print out a verbose set of operations instead of just errors.`,
 	Flags: genversion.flags,
@@ -82,7 +83,7 @@ func (g *GenVersion) SaveProjectDeps(path string) error {
 		return err
 	}
 	LogVerbose("Resolved conflicts:\n%+v", cantdeps)
-	bi, err := NewBuildInfo(rev, cantdeps)
+	bi, err := NewBuildInfo(rev, g.Stable, cantdeps)
 	if err != nil {
 		return err
 	}

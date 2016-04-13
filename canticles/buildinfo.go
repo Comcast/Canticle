@@ -39,7 +39,7 @@ func (b *BuildInfo) WriteFiles(dir string) error {
 	return BuildInfoTemplate.Execute(f, b)
 }
 
-func NewBuildInfo(rev string, deps []*CanticleDependency) (*BuildInfo, error) {
+func NewBuildInfo(rev string, stable bool, deps []*CanticleDependency) (*BuildInfo, error) {
 	var bi BuildInfo
 	bi.Revision = rev
 
@@ -56,7 +56,11 @@ func NewBuildInfo(rev string, deps []*CanticleDependency) (*BuildInfo, error) {
 	}
 	bi.CanticleDeps = &j
 
-	// Add the other fields
+	// Add the other fields if a stable build info set is requiered
+	if stable {
+		return &bi, nil
+	}
+
 	u, err := user.Current()
 	if err != nil {
 		return nil, err
