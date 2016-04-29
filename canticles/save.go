@@ -75,7 +75,11 @@ func (s *Save) Run(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := s.SaveProject(wd); err != nil {
+	gopath, err := EnvGoPath()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := s.SaveProject(gopath, wd); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -100,6 +104,7 @@ func (s *Save) SaveProject(gopath, path string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := s.SaveDeps(path, cantdeps); err != nil {
 		return err
 	}
