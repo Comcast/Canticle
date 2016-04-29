@@ -13,6 +13,7 @@ import (
 type Save struct {
 	flags     *flag.FlagSet
 	Verbose   bool
+	Quite     bool
 	DryRun    bool
 	OnDisk    bool
 	Branches  bool
@@ -28,7 +29,8 @@ func NewSave() *Save {
 		Resolver: &PromptResolution{Printf: fmt.Printf, Scanf: fmt.Scanf},
 		Excludes: DirFlags(NewStringSet()),
 	}
-	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff")
+	f.BoolVar(&s.Verbose, "v", false, "Be verbose when getting stuff.")
+	f.BoolVar(&s.Quite, "q", false, "Don't print warnings.")
 	f.BoolVar(&s.OnDisk, "ondisk", false, "Save the revisions and sources present on disk ignoring all other Canticle files.")
 	f.BoolVar(&s.DryRun, "d", false, "Don't save the deps, just print them.")
 	f.BoolVar(&s.Branches, "b", false, "Save branches for the current projects, not revisions.")
@@ -60,6 +62,11 @@ func (s *Save) Run(args []string) {
 		Verbose = true
 	}
 	defer func() { Verbose = false }()
+	if s.Quite {
+		Quite = true
+	}
+	defer func() { Quite = false }()
+
 	if s.OnDisk {
 		s.Resolver = &PreferLocalResolution{}
 	}
@@ -78,11 +85,7 @@ func (s *Save) Run(args []string) {
 //   *  It fetches all possible DependencySources
 //   *  It performs conflict resolution
 //   *  It saves a Canticle file in path
-func (s *Save) SaveProject(path string) error {
-	gopath, err := EnvGoPath()
-	if err != nil {
-		return err
-	}
+func (s *Save) SaveProject(gopath, path string) error {
 	LogVerbose("Working with gopath %s", gopath)
 	deps, err := s.ReadDeps(gopath, path)
 	if err != nil {
