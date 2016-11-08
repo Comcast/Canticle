@@ -90,7 +90,7 @@ type BuildInfo struct {
 	BuildTime    string
 	BuildUser    string
 	BuildHost    string
-        Revision     string
+	Revision     string
 	CanticleDeps *json.RawMessage
 }
 
@@ -99,7 +99,8 @@ var buildInfo = &BuildInfo{}
 // GetBuildInfo returns the information saved by cant genversion.
 func GetBuildInfo() *BuildInfo {
         return buildInfo
-}`
+}
+`
 
 var BuildInfoTemplate = template.Must(template.New("version").Parse(`
 package buildinfo
@@ -110,10 +111,11 @@ import "encoding/json"
 func init() {
 	CanticleDeps := json.RawMessage(` + "`{{.DepString}}`" + `)
 	buildInfo = &BuildInfo{
-                "{{.BuildTime}}",
-	        "{{.BuildUser}}",
-                "{{.BuildHost}}",
-                "{{.Revision}}",
-                &CanticleDeps,
+		"{{.BuildTime}}",
+		"{{.BuildUser}}",
+		"{{.BuildHost}}",
+		"{{.Revision}}",
+		&CanticleDeps,
         }
-}`))
+}
+`))
