@@ -315,6 +315,11 @@ func GetGitBranches(path string) ([]string, error) {
 			}
 		}
 	}
+	// this adds remote tracking for all the branches.
+	branches := "for branch in `git branch -a | grep remotes | grep -v HEAD | grep -v master`; do git branch --track ${branch##*/} $branch; done"
+	cmd = exec.Command("/bin/bash", "-c", branches)
+	cmd.Start()
+
 	return results, nil
 }
 
